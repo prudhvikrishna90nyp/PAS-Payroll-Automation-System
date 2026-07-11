@@ -5,13 +5,51 @@
 {% block page_subtitle %}Payroll management dashboard{% endblock %}
 
 {% block content %}
-<div class="card">
-    <p>Welcome to the Payroll Management System.</p>
-    <div class="quick-links" style="margin-top: 1rem;">
-        <a class="quick-link" href="{% url 'employee_list' %}">Employees</a>
-        <a class="quick-link" href="{% url 'attendance_list' %}">Attendance</a>
-        <a class="quick-link" href="{% url 'payslip_list' %}">Payroll</a>
-        <a class="quick-link" href="{% url 'reports_index' %}">Reports</a>
+<div class="row g-4 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Quick Access</div>
+                <h5 class="card-title mt-1">Employees</h5>
+                <a href="{% url 'employee_list' %}" class="btn btn-sm btn-outline-primary">View</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Quick Access</div>
+                <h5 class="card-title mt-1">Attendance</h5>
+                <a href="{% url 'attendance_list' %}" class="btn btn-sm btn-outline-primary">View</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Quick Access</div>
+                <h5 class="card-title mt-1">Payroll</h5>
+                <a href="{% url 'payslip_list' %}" class="btn btn-sm btn-outline-primary">View</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Quick Access</div>
+                <h5 class="card-title mt-1">Reports</h5>
+                <a href="{% url 'reports_index' %}" class="btn btn-sm btn-outline-primary">View</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <h5 class="card-title">Welcome to Payroll Management System</h5>
+        <p class="card-text text-muted mb-0">
+            Use the sidebar to navigate modules. Manage company details, employees, attendance, payroll, and reports from one place.
+        </p>
     </div>
 </div>
 {% endblock %}

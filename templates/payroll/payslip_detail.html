@@ -5,54 +5,65 @@
 {% block page_subtitle %}Period: {{ payslip.pay_period }} | Status: {{ payslip.get_status_display }}{% endblock %}
 
 {% block content %}
-<div class="actions">
-    <a class="btn" href="{% url 'payslip_pdf' payslip.pk %}">Download PDF</a>
-    <a class="btn btn-secondary" href="{% url 'payslip_list' %}">Back to list</a>
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <a class="btn btn-primary btn-sm" href="{% url 'payslip_pdf' payslip.pk %}">Download PDF</a>
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'payslip_list' %}">Back to list</a>
 </div>
 
-<div class="card">
-    <h2>Earnings</h2>
-    <table>
-        <thead>
-            <tr><th>Description</th><th>Amount</th></tr>
-        </thead>
-        <tbody>
-            {% for item in earnings %}
-            <tr>
-                <td>{{ item.description }}</td>
-                <td>₹{{ item.amount }}</td>
-            </tr>
-            {% endfor %}
-            <tr>
-                <th>Gross Pay</th>
-                <th>₹{{ payslip.gross_pay }}</th>
-            </tr>
-        </tbody>
-    </table>
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">Earnings</h5>
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr><th>Description</th><th>Amount</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for item in earnings %}
+                        <tr>
+                            <td>{{ item.description }}</td>
+                            <td>₹{{ item.amount }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="table-light">
+                            <th>Gross Pay</th>
+                            <th>₹{{ payslip.gross_pay }}</th>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">Deductions</h5>
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr><th>Description</th><th>Amount</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for item in deductions %}
+                        <tr>
+                            <td>{{ item.description }}</td>
+                            <td>₹{{ item.amount }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="table-light">
+                            <th>Total Deductions</th>
+                            <th>₹{{ payslip.total_deductions }}</th>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="card">
-    <h2>Deductions</h2>
-    <table>
-        <thead>
-            <tr><th>Description</th><th>Amount</th></tr>
-        </thead>
-        <tbody>
-            {% for item in deductions %}
-            <tr>
-                <td>{{ item.description }}</td>
-                <td>₹{{ item.amount }}</td>
-            </tr>
-            {% endfor %}
-            <tr>
-                <th>Total Deductions</th>
-                <th>₹{{ payslip.total_deductions }}</th>
-            </tr>
-        </tbody>
-    </table>
-</div>
-
-<div class="card">
-    <h2>Net Pay: ₹{{ payslip.net_pay }}</h2>
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-body">
+        <h5 class="card-title mb-0">Net Pay: ₹{{ payslip.net_pay }}</h5>
+    </div>
 </div>
 {% endblock %}
