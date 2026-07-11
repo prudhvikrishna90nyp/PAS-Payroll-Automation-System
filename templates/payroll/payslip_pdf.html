@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #222; }
+        h1 { font-size: 18px; margin-bottom: 4px; }
+        .meta { margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #f0f0f0; }
+        .total { font-weight: bold; background: #f8f8f8; }
+        .net { font-size: 16px; font-weight: bold; margin-top: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Payslip</h1>
+    <div class="meta">
+        <p><strong>Employee:</strong> {{ payslip.employee.full_name }} ({{ payslip.employee.employee_id }})</p>
+        <p><strong>Designation:</strong> {{ payslip.employee.designation|default:"—" }}</p>
+        <p><strong>Department:</strong> {{ payslip.employee.department|default:"—" }}</p>
+        <p><strong>Pay Period:</strong> {{ payslip.pay_period }}</p>
+        <p><strong>Status:</strong> {{ payslip.get_status_display }}</p>
+    </div>
+
+    <h2>Earnings</h2>
+    <table>
+        <tr><th>Description</th><th>Amount</th></tr>
+        {% for item in earnings %}
+        <tr><td>{{ item.description }}</td><td>{{ item.amount }}</td></tr>
+        {% endfor %}
+        <tr class="total"><td>Gross Pay</td><td>{{ payslip.gross_pay }}</td></tr>
+    </table>
+
+    <h2>Deductions</h2>
+    <table>
+        <tr><th>Description</th><th>Amount</th></tr>
+        {% for item in deductions %}
+        <tr><td>{{ item.description }}</td><td>{{ item.amount }}</td></tr>
+        {% endfor %}
+        <tr class="total"><td>Total Deductions</td><td>{{ payslip.total_deductions }}</td></tr>
+    </table>
+
+    <p class="net">Net Pay: {{ payslip.net_pay }}</p>
+</body>
+</html>

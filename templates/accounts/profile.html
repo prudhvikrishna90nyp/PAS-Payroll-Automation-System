@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block title %}Profile - Payroll{% endblock %}
+{% block page_heading %}Profile{% endblock %}
+{% block page_subtitle %}Your account details{% endblock %}
+
+{% block content %}
+<div class="card">
+    <p><strong>Username:</strong> {{ user.username }}</p>
+    <p><strong>Email:</strong> {{ user.email|default:"—" }}</p>
+    <p><strong>Last login:</strong> {{ user.last_login|default:"—" }}</p>
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Payslips - Payroll{% endblock %}
+{% block page_heading %}Payroll{% endblock %}
+{% block page_subtitle %}Payslip generation and export{% endblock %}
+
+{% block content %}
+<div class="actions">
+    <form method="get" class="inline">
+        <select name="period" onchange="this.form.submit()">
+            <option value="">All periods</option>
+            {% for period in pay_periods %}
+            <option value="{{ period.pk }}" {% if selected_period_id == period.pk %}selected{% endif %}>
+                {{ period }}
+            </option>
+            {% endfor %}
+        </select>
+    </form>
+    <a class="btn btn-secondary" href="{% url 'payslip_export_excel' %}{% if selected_period_id %}?period={{ selected_period_id }}{% endif %}">
+        Export Excel
+    </a>
+    {% if selected_period_id %}
+    <form method="post" action="{% url 'generate_period_payslips' selected_period_id %}" class="inline">
+        {% csrf_token %}
+        <button type="submit" class="btn">Generate Payslips</button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="card">
+    {% if payslips %}
+    <table>
+        <thead>
+            <tr>
+                <th>Employee</th>
+                <th>Period</th>
+                <th>Gross</th>
+                <th>Deductions</th>
+                <th>Net Pay</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for payslip in payslips %}
+            <tr>
+                <td>{{ payslip.employee.full_name }}</td>
+                <td>{{ payslip.pay_period }}</td>
+                <td>₹{{ payslip.gross_pay }}</td>
+                <td>₹{{ payslip.total_deductions }}</td>
+                <td>₹{{ payslip.net_pay }}</td>
+                <td>
+                    <span class="badge {{ payslip.status }}">{{ payslip.get_status_display }}</span>
+                </td>
+                <td>
+                    <a href="{% url 'payslip_detail' payslip.pk %}">View</a>
+                    |
+                    <a href="{% url 'payslip_pdf' payslip.pk %}">PDF</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">No payslips found for the selected period.</p>
+    {% endif %}
+</div>
+{% endblock %}

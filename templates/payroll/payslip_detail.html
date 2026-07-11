@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}Payslip - {{ payslip.employee.full_name }}{% endblock %}
+{% block page_heading %}Payslip — {{ payslip.employee.full_name }}{% endblock %}
+{% block page_subtitle %}Period: {{ payslip.pay_period }} | Status: {{ payslip.get_status_display }}{% endblock %}
+
+{% block content %}
+<div class="actions">
+    <a class="btn" href="{% url 'payslip_pdf' payslip.pk %}">Download PDF</a>
+    <a class="btn btn-secondary" href="{% url 'payslip_list' %}">Back to list</a>
+</div>
+
+<div class="card">
+    <h2>Earnings</h2>
+    <table>
+        <thead>
+            <tr><th>Description</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+            {% for item in earnings %}
+            <tr>
+                <td>{{ item.description }}</td>
+                <td>₹{{ item.amount }}</td>
+            </tr>
+            {% endfor %}
+            <tr>
+                <th>Gross Pay</th>
+                <th>₹{{ payslip.gross_pay }}</th>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h2>Deductions</h2>
+    <table>
+        <thead>
+            <tr><th>Description</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+            {% for item in deductions %}
+            <tr>
+                <td>{{ item.description }}</td>
+                <td>₹{{ item.amount }}</td>
+            </tr>
+            {% endfor %}
+            <tr>
+                <th>Total Deductions</th>
+                <th>₹{{ payslip.total_deductions }}</th>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h2>Net Pay: ₹{{ payslip.net_pay }}</h2>
+</div>
+{% endblock %}

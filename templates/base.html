@@ -1,0 +1,65 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Payroll{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="brand">
+                <span class="brand-icon">₹</span>
+                <div>
+                    <strong>Payroll</strong>
+                    <small>Management System</small>
+                </div>
+            </div>
+            <nav class="nav">
+                <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    Dashboard
+                </a>
+                <a href="{% url 'employee_list' %}" class="{% if request.resolver_match.url_name == 'employee_list' %}active{% endif %}">
+                    Employees
+                </a>
+                <a href="/admin/company/company/" class="{% if 'company' in request.path %}active{% endif %}">
+                    Company
+                </a>
+                <a href="{% url 'attendance_list' %}" class="{% if request.resolver_match.url_name == 'attendance_list' %}active{% endif %}">
+                    Attendance
+                </a>
+                <a href="{% url 'payslip_list' %}" class="{% if 'payslip' in request.resolver_match.url_name %}active{% endif %}">
+                    Payroll
+                </a>
+                <a href="{% url 'reports_index' %}" class="{% if request.resolver_match.url_name == 'reports_index' %}active{% endif %}">
+                    Reports
+                </a>
+                <a href="/admin/">Admin</a>
+            </nav>
+        </aside>
+
+        <div class="main">
+            <header class="topbar">
+                <div>
+                    <h1>{% block page_heading %}Dashboard{% endblock %}</h1>
+                    <p class="subtitle">{% block page_subtitle %}Overview of your payroll operations{% endblock %}</p>
+                </div>
+                <div class="topbar-actions">
+                    {% if user.is_authenticated %}
+                    <span class="user-badge">{{ user.get_username }}</span>
+                    <a class="btn btn-secondary" href="{% url 'profile' %}">Profile</a>
+                    {% else %}
+                    <a class="btn" href="/admin/login/">Sign In</a>
+                    {% endif %}
+                </div>
+            </header>
+
+            <main class="content">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+</body>
+</html>

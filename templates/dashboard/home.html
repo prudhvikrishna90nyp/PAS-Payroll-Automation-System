@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}Home - Payroll{% endblock %}
+{% block page_heading %}Welcome, {{ user.get_username }}{% endblock %}
+{% block page_subtitle %}Payroll management dashboard{% endblock %}
+
+{% block content %}
+<div class="card">
+    <p>Welcome to the Payroll Management System.</p>
+    <div class="quick-links" style="margin-top: 1rem;">
+        <a class="quick-link" href="{% url 'employee_list' %}">Employees</a>
+        <a class="quick-link" href="{% url 'attendance_list' %}">Attendance</a>
+        <a class="quick-link" href="{% url 'payslip_list' %}">Payroll</a>
+        <a class="quick-link" href="{% url 'reports_index' %}">Reports</a>
+    </div>
+</div>
+{% endblock %}

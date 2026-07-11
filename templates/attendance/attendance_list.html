@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Attendance - Payroll{% endblock %}
+{% block page_heading %}Attendance{% endblock %}
+{% block page_subtitle %}Track employee attendance records{% endblock %}
+
+{% block content %}
+<div class="stats">
+    <div class="stat-card">
+        <div class="label">Active Employees</div>
+        <div class="value">{{ employee_count }}</div>
+    </div>
+</div>
+
+<div class="card">
+    {% if records %}
+    <table>
+        <thead>
+            <tr>
+                <th>Employee</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Check In</th>
+                <th>Check Out</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in records %}
+            <tr>
+                <td>{{ record.employee.full_name }}</td>
+                <td>{{ record.date }}</td>
+                <td>{{ record.get_status_display }}</td>
+                <td>{{ record.check_in|default:"—" }}</td>
+                <td>{{ record.check_out|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">
+        No attendance records yet.
+        <a href="/admin/attendance/attendancerecord/add/">Add attendance</a> in the admin.
+    </p>
+    {% endif %}
+</div>
+{% endblock %}

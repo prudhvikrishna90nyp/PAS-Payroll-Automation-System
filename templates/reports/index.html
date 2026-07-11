@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}Reports - Payroll{% endblock %}
+{% block page_heading %}Reports{% endblock %}
+{% block page_subtitle %}Summary metrics and exports{% endblock %}
+
+{% block content %}
+<div class="stats">
+    <div class="stat-card">
+        <div class="label">Employees</div>
+        <div class="value">{{ employee_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Departments</div>
+        <div class="value">{{ department_count }}</div>
+    </div>
+    <div class="stat-card success">
+        <div class="label">Payslips</div>
+        <div class="value">{{ payslip_count }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Available Reports</h2>
+    <div class="quick-links">
+        <a class="quick-link" href="{% url 'payslip_export_excel' %}">Export Payslips (Excel)</a>
+        <a class="quick-link" href="{% url 'employee_list' %}">Employee Directory</a>
+        <a class="quick-link" href="{% url 'payslip_list' %}">Payroll Summary</a>
+    </div>
+</div>
+{% endblock %}

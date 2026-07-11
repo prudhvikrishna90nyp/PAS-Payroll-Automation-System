@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}Employees - Payroll{% endblock %}
+{% block page_heading %}Employees{% endblock %}
+{% block page_subtitle %}Active employee directory{% endblock %}
+
+{% block content %}
+<div class="card">
+    {% if employees %}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Department</th>
+                <th>Designation</th>
+                <th>Basic Salary</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for employee in employees %}
+            <tr>
+                <td>{{ employee.employee_id }}</td>
+                <td>{{ employee.full_name }}</td>
+                <td>{{ employee.department|default:"—" }}</td>
+                <td>{{ employee.designation|default:"—" }}</td>
+                <td>₹{{ employee.basic_salary }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">No active employees. <a href="/admin/employee/employee/add/">Add employees</a> in the admin.</p>
+    {% endif %}
+</div>
+{% endblock %}
