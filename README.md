@@ -7,18 +7,80 @@ Monorepo for the PAS payroll platform.
 ```
 PAS-Payroll-Automation-System/
 │
-├── docs/
-│   ├── SRS.md
-│   ├── ROADMAP.md
-│   ├── DATABASE.md
-│   ├── UI_GUIDE.md
-│   ├── API.md
-│   ├── DEPLOYMENT.md
-│   └── CHANGELOG.md
-├── backend/              # Django application
+├── backend/
+│   ├── apps/
+│   │   ├── accounts/
+│   │   ├── dashboard/
+│   │   ├── clients/
+│   │   ├── company/
+│   │   ├── employee/
+│   │   ├── attendance/
+│   │   ├── leave/
+│   │   ├── payroll/
+│   │   ├── reports/
+│   │   ├── compliance/
+│   │   ├── notifications/
+│   │   ├── audit/
+│   │   └── common/
+│   ├── config/
+│   ├── templates/
+│   ├── static/
+│   ├── media/
+│   ├── docs/             # Project knowledge base
+│   │   ├── 01_SRS.md
+│   │   ├── 02_DATABASE.md
+│   │   ├── 03_UI_GUIDE.md
+│   │   ├── 04_API.md
+│   │   ├── 05_DEPLOYMENT.md
+│   │   ├── 06_CHANGELOG.md
+│   │   └── 07_ROADMAP.md
+│   ├── requirements/
+│   ├── tests/
+│   ├── manage.py
+│   ├── Dockerfile
+│   └── docker-compose.yml
+│
 ├── frontend/             # Phase 2 — React
+├── .gitignore
+├── LICENSE
 └── README.md
 ```
+
+## Git Workflow
+
+Three-branch strategy:
+
+```
+main                      ← production-ready releases
+develop                   ← integration branch
+feature/<module-name>     ← module work (e.g. feature/client-management)
+```
+
+| Branch | Purpose |
+|--------|---------|
+| `main` | Stable, deployable code. Merges from `develop` at release time. |
+| `develop` | Ongoing integration. All feature branches merge here. |
+| `feature/<module-name>` | Single module or feature. Branch from `develop`, merge back via PR. |
+
+**Typical flow:**
+
+```bash
+git checkout develop
+git pull origin develop
+git checkout -b feature/client-management
+
+# ... work, commit ...
+
+git push -u origin feature/client-management
+# Open PR: feature/client-management → develop
+
+# After release:
+# PR: develop → main
+```
+
+**Naming examples:** `feature/client-management`, `feature/company-management`, `feature/payroll`
+
+---
 
 ## Quick Start
 
@@ -37,15 +99,17 @@ Open http://127.0.0.1:8000/
 
 ## Documentation
 
+Project knowledge base: [backend/docs/](backend/docs/)
+
 | Document | Description |
 |----------|-------------|
-| [SRS.md](docs/SRS.md) | Software requirements |
-| [ROADMAP.md](docs/ROADMAP.md) | Development phases |
-| [DATABASE.md](docs/DATABASE.md) | Schema reference |
-| [UI_GUIDE.md](docs/UI_GUIDE.md) | Layout and design patterns |
-| [API.md](docs/API.md) | Routes and endpoints |
-| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Install and deploy |
-| [CHANGELOG.md](docs/CHANGELOG.md) | Version history |
+| [01_SRS.md](backend/docs/01_SRS.md) | Software requirements |
+| [02_DATABASE.md](backend/docs/02_DATABASE.md) | Schema reference |
+| [03_UI_GUIDE.md](backend/docs/03_UI_GUIDE.md) | Layout and design patterns |
+| [04_API.md](backend/docs/04_API.md) | Routes and endpoints |
+| [05_DEPLOYMENT.md](backend/docs/05_DEPLOYMENT.md) | Install and deploy |
+| [06_CHANGELOG.md](backend/docs/06_CHANGELOG.md) | Version history |
+| [07_ROADMAP.md](backend/docs/07_ROADMAP.md) | Development phases |
 
 ## Docker
 
@@ -64,3 +128,7 @@ python manage.py test tests
 ## Frontend (Phase 2)
 
 React SPA — see [frontend/README.md](frontend/README.md).
+
+## License
+
+MIT — see [LICENSE](LICENSE).

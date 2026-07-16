@@ -15,6 +15,6 @@ RUN pip install --no-cache-dir -r requirements/production.txt
 
 COPY . .
 
-RUN python manage.py collectstatic --noinput --settings=payroll_project.settings.production
+RUN python manage.py collectstatic --noinput --settings=config.settings.production
 
-CMD ["gunicorn", "payroll_project.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]

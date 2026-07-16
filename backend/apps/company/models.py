@@ -1,24 +1,7 @@
 from django.db import models
 
-from .managers import SoftDeleteModel
-
-
-class Client(SoftDeleteModel):
-    name = models.CharField(max_length=200)
-    code = models.CharField(max_length=20, unique=True)
-    contact_person = models.CharField(max_length=100, blank=True)
-    phone = models.CharField(max_length=20, blank=True)
-    email = models.EmailField(blank=True)
-    address = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ['name']
-
-    def __str__(self):
-        return self.name
+from apps.clients.models import Client
+from apps.common.mixins import SoftDeleteModel
 
 
 class Company(SoftDeleteModel):
@@ -53,9 +36,6 @@ class Company(SoftDeleteModel):
         blank=True,
         help_text='Bank name, account number, IFSC, branch, etc.',
     )
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = 'Company'
@@ -82,9 +62,6 @@ class Branch(SoftDeleteModel):
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
     is_head_office = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = 'Branches'

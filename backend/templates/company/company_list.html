@@ -90,7 +90,7 @@
         </div>
         <div class="d-flex justify-content-between align-items-center mt-3">
             <small class="text-muted">Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}</small>
-            {% include 'company/_pagination.html' %}
+            {% include 'includes/_pagination.html' %}
         </div>
         {% else %}
         <p class="text-muted mb-0">No companies found. <a href="{% url 'company_create' %}">Add a company</a>.</p>
