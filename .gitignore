@@ -12,9 +12,9 @@ dist/
 build/
 
 # Django
-db.sqlite3
-staticfiles/
-media/company/logos/*
+backend/db.sqlite3
+backend/staticfiles/
+backend/media/company/logos/*
 
 # Virtual environments
 venv/

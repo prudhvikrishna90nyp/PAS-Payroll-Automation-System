@@ -1,8 +1,8 @@
-# PayrollAutomation — Routes & Endpoints
-
-The application currently serves HTML views (not a REST API). All routes below are web endpoints unless noted.
+# API
 
 Base URL (development): `http://127.0.0.1:8000`
+
+Currently HTML views only. REST API planned for Phase 2 under `/api/v1/`.
 
 ---
 
@@ -18,7 +18,26 @@ Base URL (development): `http://127.0.0.1:8000`
 
 | Method | URL | Name | Auth | Description |
 |--------|-----|------|------|-------------|
-| GET | `/accounts/profile/` | profile | Required | User profile page |
+| GET | `/accounts/profile/` | profile | Required | User profile |
+
+---
+
+## Company Management
+
+| Method | URL | Name | Auth | Description |
+|--------|-----|------|------|-------------|
+| GET | `/company/clients/` | client_list | Required | List clients (`?q=`, `?status=`, `?page=`) |
+| GET/POST | `/company/clients/add/` | client_create | Required | Create client |
+| GET/POST | `/company/clients/<id>/edit/` | client_update | Required | Edit client |
+| POST | `/company/clients/<id>/delete/` | client_delete | Required | Soft delete |
+| GET | `/company/companies/` | company_list | Required | List companies (`?q=`, `?client=`, `?status=`) |
+| GET/POST | `/company/companies/add/` | company_create | Required | Create company (multipart for logo) |
+| GET/POST | `/company/companies/<id>/edit/` | company_update | Required | Edit company |
+| POST | `/company/companies/<id>/delete/` | company_delete | Required | Soft delete |
+| GET | `/company/branches/` | branch_list | Required | List branches (`?q=`, `?client=`, `?company=`) |
+| GET/POST | `/company/branches/add/` | branch_create | Required | Create branch |
+| GET/POST | `/company/branches/<id>/edit/` | branch_update | Required | Edit branch |
+| POST | `/company/branches/<id>/delete/` | branch_delete | Required | Soft delete |
 
 ---
 
@@ -42,11 +61,11 @@ Base URL (development): `http://127.0.0.1:8000`
 
 | Method | URL | Name | Auth | Description |
 |--------|-----|------|------|-------------|
-| GET | `/payroll/payslips/` | payslip_list | Open | List payslips (filter by `?period=<id>`) |
+| GET | `/payroll/payslips/` | payslip_list | Open | List payslips (`?period=<id>`) |
 | GET | `/payroll/payslips/<id>/` | payslip_detail | Open | Payslip detail |
-| GET | `/payroll/payslips/<id>/pdf/` | payslip_pdf | Open | Download payslip PDF |
-| GET | `/payroll/payslips/export/` | payslip_export_excel | Open | Export Excel (`?period=<id>` optional) |
-| POST | `/payroll/pay-periods/<id>/generate/` | generate_period_payslips | Open | Generate payslips for period |
+| GET | `/payroll/payslips/<id>/pdf/` | payslip_pdf | Open | Download PDF |
+| GET | `/payroll/payslips/export/` | payslip_export_excel | Open | Export Excel |
+| POST | `/payroll/pay-periods/<id>/generate/` | generate_period_payslips | Open | Generate payslips |
 
 ---
 
@@ -54,7 +73,7 @@ Base URL (development): `http://127.0.0.1:8000`
 
 | Method | URL | Name | Auth | Description |
 |--------|-----|------|------|-------------|
-| GET | `/reports/` | reports_index | Open | Reports summary and links |
+| GET | `/reports/` | reports_index | Open | Reports summary |
 
 ---
 
@@ -62,7 +81,7 @@ Base URL (development): `http://127.0.0.1:8000`
 
 | Method | URL | Description |
 |--------|-----|-------------|
-| GET/POST | `/admin/` | Django admin (Company, Employee, Payroll, Attendance) |
+| GET/POST | `/admin/` | Django admin |
 | GET | `/admin/login/` | Login |
 | POST | `/admin/logout/` | Logout |
 
@@ -72,11 +91,20 @@ Base URL (development): `http://127.0.0.1:8000`
 
 | Path | Description |
 |------|-------------|
-| `/static/` | CSS, JS, images (WhiteNoise in production) |
-| `/media/` | Uploaded files (company logos) — development only via Django |
+| `/static/` | CSS, JS (WhiteNoise in production) |
+| `/media/` | Uploaded logos (dev only via Django) |
 
 ---
 
-## Future REST API (Planned)
+## Future REST API (Phase 2)
 
-A JSON REST API under `/api/v1/` is planned for Phase 4. Endpoints will cover employees, payroll runs, payslips, and statutory reports.
+```
+GET    /api/v1/clients/
+POST   /api/v1/clients/
+GET    /api/v1/companies/
+POST   /api/v1/payroll/generate/
+GET    /api/v1/payslips/{id}/
+GET    /api/v1/employees/
+```
+
+Authentication: JWT or session-based (TBD).

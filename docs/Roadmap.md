@@ -1,22 +1,24 @@
-# PayrollAutomation — Roadmap
+# ROADMAP
 
-## Phase 1 — Foundation (Complete)
+## Phase 1 — Foundation ✅
 
-- [x] Django project setup with modular apps
-- [x] Company master (statutory registrations, contact, logo, bank details)
+- [x] Django monorepo (`backend/` + `frontend/` placeholder)
+- [x] Client → Company → Branch hierarchy with CRUD
 - [x] Employee and department management
 - [x] Pay period and payslip generation
 - [x] Attendance records
 - [x] Shared Bootstrap layout (sidebar, navbar, dashboard)
-- [x] Admin panel for all master data
-- [x] Excel export for payslips
-- [x] PDF payslip generation (WeasyPrint)
+- [x] PAN / GSTIN validation, soft delete, pagination
+- [x] Admin panel, Excel export, PDF payslips
+- [x] Docker deployment files
+- [x] Project documentation
 
-## Phase 2 — Core Payroll (In Progress)
+## Phase 2 — Core Payroll & React Frontend
 
-- [ ] Company setup UI (outside admin)
-- [ ] Employee CRUD from web interface
-- [ ] Attendance marking from web interface
+- [ ] React SPA in `frontend/`
+- [ ] REST API (`/api/v1/`)
+- [ ] Employee CRUD from web UI
+- [ ] Attendance marking from web UI
 - [ ] Role-based access (HR, Admin, Employee)
 - [ ] Payslip approval workflow (draft → finalized)
 - [ ] Email payslips to employees
@@ -31,17 +33,15 @@
 
 ## Phase 4 — Advanced Features
 
-- [ ] Multi-company support
-- [ ] Leave management integration
+- [ ] Multi-company payroll runs
+- [ ] Leave management
 - [ ] Salary revision history
 - [ ] Loan and advance deductions
-- [ ] REST API for third-party integrations
 - [ ] Audit log for payroll changes
 
 ## Phase 5 — Production & Scale
 
-- [ ] PostgreSQL as default production database
 - [ ] Celery for async payslip generation
 - [ ] Automated backups
 - [ ] CI/CD pipeline
-- [ ] Docker deployment
+- [ ] Monitoring and alerting

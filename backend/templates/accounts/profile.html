@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block title %}Profile - PAS{% endblock %}
+{% block page_heading %}Profile{% endblock %}
+{% block page_subtitle %}Your account details{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Username</dt>
+            <dd class="col-sm-9">{{ user.username }}</dd>
+            <dt class="col-sm-3">Email</dt>
+            <dd class="col-sm-9">{{ user.email|default:"—" }}</dd>
+            <dt class="col-sm-3">Last login</dt>
+            <dd class="col-sm-9">{{ user.last_login|default:"—" }}</dd>
+        </dl>
+    </div>
+</div>
+{% endblock %}

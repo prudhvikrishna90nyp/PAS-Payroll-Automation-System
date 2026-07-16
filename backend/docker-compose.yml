@@ -1,0 +1,31 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: payroll_project.settings.production
+      DB_HOST: db
+      DB_NAME: payroll
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      - db
+    volumes:
+      - ./media:/app/media
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: payroll
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

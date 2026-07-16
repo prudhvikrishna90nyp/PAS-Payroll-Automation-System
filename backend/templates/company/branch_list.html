@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block title %}Branches - PAS{% endblock %}
+{% block page_heading %}Branches{% endblock %}
+{% block page_subtitle %}Manage company branches{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <form method="get" class="row g-2 align-items-end flex-grow-1">
+        <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">Search</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Branch name, code...">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">Client</label>
+            <select name="client" class="form-select form-select-sm">
+                <option value="">All</option>
+                {% for c in clients %}
+                <option value="{{ c.pk }}" {% if client_id == c.pk|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">Company</label>
+            <select name="company" class="form-select form-select-sm">
+                <option value="">All</option>
+                {% for co in companies %}
+                <option value="{{ co.pk }}" {% if company_id == co.pk|stringformat:'s' %}selected{% endif %}>{{ co.company_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">Status</label>
+            <select name="status" class="form-select form-select-sm">
+                <option value="">All</option>
+                <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+                <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
+            </select>
+        </div>
+        <div class="col-md-auto">
+            <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+            <a href="{% url 'branch_list' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+        </div>
+    </form>
+    <a href="{% url 'branch_create' %}" class="btn btn-sm btn-primary">
+        <i class="bi bi-plus-lg me-1"></i> Add Branch
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        {% if page_obj.object_list %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Code</th>
+                        <th>Branch</th>
+                        <th>Company</th>
+                        <th>Client</th>
+                        <th>State</th>
+                        <th>HO</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for branch in page_obj %}
+                    <tr>
+                        <td>{{ branch.code }}</td>
+                        <td>{{ branch.branch_name }}</td>
+                        <td>{{ branch.company.company_name }}</td>
+                        <td>{{ branch.company.client.name }}</td>
+                        <td>{{ branch.state|default:"—" }}</td>
+                        <td>{% if branch.is_head_office %}<span class="badge text-bg-info">HO</span>{% else %}—{% endif %}</td>
+                        <td>
+                            {% if branch.is_active %}
+                            <span class="badge text-bg-success">Active</span>
+                            {% else %}
+                            <span class="badge text-bg-secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'branch_update' branch.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                            <form method="post" action="{% url 'branch_delete' branch.pk %}" class="d-inline" onsubmit="return confirm('Delete this branch?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <small class="text-muted">Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}</small>
+            {% include 'company/_pagination.html' %}
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">No branches found. <a href="{% url 'branch_create' %}">Add a branch</a>.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
