@@ -1,70 +1,106 @@
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
-from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
-
-from apps.common.utils import paginate, status_filter
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse_lazy
+from django.views import View
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from .forms import ClientForm
 from .models import Client
 
 
-@login_required
-def client_list(request):
-    queryset = Client.objects.all()
-    q = request.GET.get('q', '').strip()
-    if q:
-        queryset = queryset.filter(
-            Q(name__icontains=q)
-            | Q(code__icontains=q)
-            | Q(contact_person__icontains=q)
-            | Q(email__icontains=q)
-        )
-    queryset = status_filter(queryset, request)
-    page_obj = paginate(request, queryset)
-    params = request.GET.copy()
-    params.pop('page', None)
-    return render(request, 'clients/client_list.html', {
-        'page_obj': page_obj,
-        'q': q,
-        'status': request.GET.get('status', ''),
-        'filter_query': params.urlencode(),
-    })
+class ClientListView(LoginRequiredMixin, ListView):
+    model = Client
+    template_name = 'clients/client_list.html'
+    context_object_name = 'clients'
+    paginate_by = 10
+
+    def get_queryset(self):
+        queryset = Client.objects.all()
+
+        search_query = self.request.GET.get('q', '').strip()
+        status = self.request.GET.get('status', '').strip()
+
+        if search_query:
+            queryset = queryset.filter(
+                Q(client_code__icontains=search_query)
+                | Q(client_name__icontains=search_query)
+                | Q(trade_name__icontains=search_query)
+                | Q(contact_person__icontains=search_query)
+                | Q(mobile__icontains=search_query)
+                | Q(pan__icontains=search_query)
+                | Q(gstin__icontains=search_query)
+            )
+
+        if status == 'active':
+            queryset = queryset.filter(is_active=True)
+        elif status == 'inactive':
+            queryset = queryset.filter(is_active=False)
+
+        return queryset.order_by('client_name')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_query'] = self.request.GET.get('q', '')
+        context['status_filter'] = self.request.GET.get('status', '')
+        return context
 
 
-@login_required
-def client_create(request):
-    form = ClientForm(request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        form.save()
-        messages.success(request, 'Client created successfully.')
-        return redirect('client_list')
-    return render(request, 'clients/client_form.html', {
-        'form': form,
-        'title': 'Add Client',
-    })
+class ClientDetailView(LoginRequiredMixin, DetailView):
+    model = Client
+    template_name = 'clients/client_detail.html'
+    context_object_name = 'client'
 
 
-@login_required
-def client_update(request, pk):
-    client = get_object_or_404(Client, pk=pk)
-    form = ClientForm(request.POST or None, instance=client)
-    if request.method == 'POST' and form.is_valid():
-        form.save()
-        messages.success(request, 'Client updated successfully.')
-        return redirect('client_list')
-    return render(request, 'clients/client_form.html', {
-        'form': form,
-        'title': 'Edit Client',
-        'object': client,
-    })
+class ClientCreateView(LoginRequiredMixin, CreateView):
+    model = Client
+    form_class = ClientForm
+    template_name = 'clients/client_form.html'
+    success_url = reverse_lazy('clients:client_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, 'Client created successfully.')
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, 'Please correct the errors shown below.')
+        return super().form_invalid(form)
 
 
-@login_required
-@require_POST
-def client_delete(request, pk):
-    client = get_object_or_404(Client, pk=pk)
-    client.soft_delete()
-    messages.success(request, f'Client "{client.name}" deleted.')
-    return redirect('client_list')
+class ClientUpdateView(LoginRequiredMixin, UpdateView):
+    model = Client
+    form_class = ClientForm
+    template_name = 'clients/client_form.html'
+    success_url = reverse_lazy('clients:client_list')
+
+    def form_valid(self, form):
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, 'Client updated successfully.')
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, 'Please correct the errors shown below.')
+        return super().form_invalid(form)
+
+
+class ClientArchiveView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        client = get_object_or_404(Client, pk=pk)
+        client.is_active = False
+        client.updated_by = request.user
+        client.save(update_fields=['is_active', 'updated_by', 'updated_at'])
+        messages.success(request, f'{client.client_name} was archived.')
+        return redirect('clients:client_list')
+
+
+class ClientRestoreView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        client = get_object_or_404(Client, pk=pk)
+        client.is_active = True
+        client.updated_by = request.user
+        client.save(update_fields=['is_active', 'updated_by', 'updated_at'])
+        messages.success(request, f'{client.client_name} was restored.')
+        return redirect('clients:client_list')

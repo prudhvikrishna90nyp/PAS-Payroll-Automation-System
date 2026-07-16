@@ -26,10 +26,12 @@ Currently HTML views only. REST API planned for Phase 2 under `/api/v1/`.
 
 | Method | URL | Name | Auth | Description |
 |--------|-----|------|------|-------------|
-| GET | `/clients/` | client_list | Required | List clients (`?q=`, `?status=`, `?page=`) |
-| GET/POST | `/clients/add/` | client_create | Required | Create client |
-| GET/POST | `/clients/<id>/edit/` | client_update | Required | Edit client |
-| POST | `/clients/<id>/delete/` | client_delete | Required | Soft delete |
+| GET | `/clients/` | clients:client_list | Required | List clients (`?q=`, `?status=`, `?page=`) |
+| GET/POST | `/clients/add/` | clients:client_add | Required | Create client |
+| GET | `/clients/<id>/` | clients:client_detail | Required | Client detail |
+| GET/POST | `/clients/<id>/edit/` | clients:client_edit | Required | Edit client |
+| POST | `/clients/<id>/archive/` | clients:client_archive | Required | Archive (soft delete) |
+| POST | `/clients/<id>/restore/` | clients:client_restore | Required | Restore archived client |
 
 ---
 

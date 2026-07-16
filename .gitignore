@@ -1,35 +1,40 @@
-# Environment
-.env
-.env.*
-!.env.example
-
 # Python
 __pycache__/
 *.py[cod]
+*.pyo
 *.egg-info/
 .eggs/
 dist/
 build/
 
-# Django
-backend/db.sqlite3
-backend/staticfiles/
-backend/media/company/logos/*
-
-# Virtual environments
+# Virtual environment
 venv/
 venvvenv/
 .venv/
 
+# Django
+backend/db.sqlite3
+backend/media/company/logos/*
+backend/staticfiles/
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
 # IDE
-.idea/
 .vscode/
+.idea/
 *.swp
 *.swo
 
-# OS
-Thumbs.db
+# Operating system
 .DS_Store
+Thumbs.db
 
-# Logs
-*.log
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+backend/.test_cookies.txt

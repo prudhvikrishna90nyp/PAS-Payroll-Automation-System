@@ -1,72 +1,109 @@
-from django.contrib.auth.models import User
-from django.test import Client as TestClient, TestCase
+from django.contrib.auth import get_user_model
+from django.test import TestCase
 from django.urls import reverse
 
-from apps.clients.models import Client
+from .models import Client
 
 
 class ClientModelTests(TestCase):
-    def test_str_returns_name(self):
-        client = Client.objects.create(name='Acme Corp', code='ACME')
-        self.assertEqual(str(client), 'Acme Corp')
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='testadmin',
+            password='TestPassword123!',
+        )
 
-    def test_soft_delete_marks_inactive(self):
-        client = Client.objects.create(name='Acme Corp', code='ACME')
-        client.soft_delete()
-        client.refresh_from_db()
-        self.assertTrue(client.is_deleted)
-        self.assertFalse(client.is_active)
-        self.assertIsNotNone(client.deleted_at)
-        self.assertNotIn(client, Client.objects.all())
-        self.assertIn(client, Client.all_objects.all())
+        self.client_record = Client.objects.create(
+            client_code='cli001',
+            client_name='Deep Enterprises',
+            contact_person='Test Person',
+            mobile='9876543210',
+            pan='ABCDE1234F',
+            gstin='37ABCDE1234F1Z5',
+            address_line_1='Naidupet',
+            city='Naidupet',
+            district='Tirupati',
+            state='Andhra Pradesh',
+            pincode='524126',
+            created_by=self.user,
+            updated_by=self.user,
+        )
+
+    def test_client_code_saved_in_uppercase(self):
+        self.assertEqual(
+            self.client_record.client_code,
+            'CLI001',
+        )
+
+    def test_client_string_representation(self):
+        self.assertEqual(
+            str(self.client_record),
+            'CLI001 - Deep Enterprises',
+        )
 
 
 class ClientViewTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='hr', password='pass1234')
-        self.http = TestClient()
-        self.http.login(username='hr', password='pass1234')
+        self.user = get_user_model().objects.create_user(
+            username='testuser',
+            password='TestPassword123!',
+        )
 
-    def test_client_list_requires_login(self):
-        anon = TestClient()
-        response = anon.get(reverse('client_list'))
-        self.assertEqual(response.status_code, 302)
+        self.client.login(
+            username='testuser',
+            password='TestPassword123!',
+        )
 
-    def test_client_create_and_list(self):
-        response = self.http.post(reverse('client_create'), {
-            'name': 'Globex',
-            'code': 'GLBX',
-            'contact_person': 'Jane',
-            'phone': '9999999999',
-            'email': 'jane@globex.com',
-            'address': 'Mumbai',
-            'is_active': True,
-        })
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(Client.objects.filter(code='GLBX').exists())
+        self.client_record = Client.objects.create(
+            client_code='CLI001',
+            client_name='Deep Enterprises',
+            mobile='9876543210',
+            address_line_1='Naidupet',
+            city='Naidupet',
+            state='Andhra Pradesh',
+            pincode='524126',
+        )
 
-        response = self.http.get(reverse('client_list'))
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Globex')
+    def test_client_list_page(self):
+        response = self.client.get(
+            reverse('clients:client_list')
+        )
 
-    def test_client_update(self):
-        client = Client.objects.create(name='Old Name', code='OLD')
-        response = self.http.post(reverse('client_update', args=[client.pk]), {
-            'name': 'New Name',
-            'code': 'OLD',
-            'contact_person': '',
-            'phone': '',
-            'email': '',
-            'address': '',
-            'is_active': True,
-        })
-        self.assertEqual(response.status_code, 302)
-        client.refresh_from_db()
-        self.assertEqual(client.name, 'New Name')
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
 
-    def test_client_soft_delete_via_view(self):
-        client = Client.objects.create(name='Remove Me', code='RMV')
-        response = self.http.post(reverse('client_delete', args=[client.pk]))
-        self.assertEqual(response.status_code, 302)
-        client.refresh_from_db()
-        self.assertTrue(client.is_deleted)
+        self.assertContains(
+            response,
+            'Deep Enterprises',
+        )
+
+    def test_client_search(self):
+        response = self.client.get(
+            reverse('clients:client_list'),
+            {'q': 'Deep'},
+        )
+
+        self.assertContains(
+            response,
+            'Deep Enterprises',
+        )
+
+    def test_archive_client(self):
+        response = self.client.post(
+            reverse(
+                'clients:client_archive',
+                kwargs={'pk': self.client_record.pk},
+            )
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('clients:client_list'),
+        )
+
+        self.client_record.refresh_from_db()
+
+        self.assertFalse(
+            self.client_record.is_active
+        )

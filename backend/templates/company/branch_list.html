@@ -16,7 +16,7 @@
             <select name="client" class="form-select form-select-sm">
                 <option value="">All</option>
                 {% for c in clients %}
-                <option value="{{ c.pk }}" {% if client_id == c.pk|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>
+                <option value="{{ c.pk }}" {% if client_id == c.pk|stringformat:'s' %}selected{% endif %}>{{ c.client_name }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -70,7 +70,7 @@
                         <td>{{ branch.code }}</td>
                         <td>{{ branch.branch_name }}</td>
                         <td>{{ branch.company.company_name }}</td>
-                        <td>{{ branch.company.client.name }}</td>
+                        <td>{{ branch.company.client.client_name }}</td>
                         <td>{{ branch.state|default:"—" }}</td>
                         <td>{% if branch.is_head_office %}<span class="badge text-bg-info">HO</span>{% else %}—{% endif %}</td>
                         <td>

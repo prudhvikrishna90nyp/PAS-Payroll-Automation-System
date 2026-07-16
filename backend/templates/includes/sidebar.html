@@ -9,33 +9,36 @@
         </a>
     </div>
 
-    <nav class="sidebar-nav nav flex-column px-2 pb-4">
-        <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+    <div class="list-group list-group-flush sidebar-nav px-2 pb-4">
+        <a href="{% url 'dashboard' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
             <i class="bi bi-speedometer2 me-2"></i> Dashboard
         </a>
-        <a href="{% url 'client_list' %}" class="nav-link {% if 'client' in request.resolver_match.url_name %}active{% endif %}">
-            <i class="bi bi-briefcase me-2"></i> Clients
+        <a
+            href="{% url 'clients:client_list' %}"
+            class="list-group-item list-group-item-action {% if request.resolver_match.namespace == 'clients' %}active{% endif %}"
+        >
+            Clients
         </a>
-        <a href="{% url 'company_list' %}" class="nav-link {% if 'company_' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'company_list' %}" class="list-group-item list-group-item-action {% if 'company_' in request.resolver_match.url_name %}active{% endif %}">
             <i class="bi bi-building me-2"></i> Companies
         </a>
-        <a href="{% url 'branch_list' %}" class="nav-link {% if 'branch' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'branch_list' %}" class="list-group-item list-group-item-action {% if 'branch' in request.resolver_match.url_name %}active{% endif %}">
             <i class="bi bi-diagram-3 me-2"></i> Branches
         </a>
-        <a href="{% url 'employee_list' %}" class="nav-link {% if request.resolver_match.url_name == 'employee_list' %}active{% endif %}">
+        <a href="{% url 'employee_list' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'employee_list' %}active{% endif %}">
             <i class="bi bi-people me-2"></i> Employees
         </a>
-        <a href="{% url 'attendance_list' %}" class="nav-link {% if request.resolver_match.url_name == 'attendance_list' %}active{% endif %}">
+        <a href="{% url 'attendance_list' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'attendance_list' %}active{% endif %}">
             <i class="bi bi-calendar-check me-2"></i> Attendance
         </a>
-        <a href="{% url 'payslip_list' %}" class="nav-link {% if 'payslip' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'payslip_list' %}" class="list-group-item list-group-item-action {% if 'payslip' in request.resolver_match.url_name %}active{% endif %}">
             <i class="bi bi-cash-stack me-2"></i> Payroll
         </a>
-        <a href="{% url 'reports_index' %}" class="nav-link {% if request.resolver_match.url_name == 'reports_index' %}active{% endif %}">
+        <a href="{% url 'reports_index' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'reports_index' %}active{% endif %}">
             <i class="bi bi-bar-chart me-2"></i> Reports
         </a>
-        <a href="/admin/" class="nav-link">
+        <a href="/admin/" class="list-group-item list-group-item-action">
             <i class="bi bi-gear me-2"></i> Admin
         </a>
-    </nav>
+    </div>
 </aside>
