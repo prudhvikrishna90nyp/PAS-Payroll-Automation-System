@@ -159,6 +159,7 @@ class PayrollRunAdmin(admin.ModelAdmin):
     list_filter = ('status', 'company', 'period__year')
     search_fields = ('company__company_name', 'notes')
     autocomplete_fields = ('period', 'company', 'created_by')
+    readonly_fields = ('calculation_errors',)
     inlines = [PayrollResultInline]
 
 

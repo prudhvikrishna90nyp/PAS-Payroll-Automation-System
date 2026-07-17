@@ -450,6 +450,7 @@ class PayrollPeriodStatus(models.TextChoices):
 class PayrollRunStatus(models.TextChoices):
     DRAFT = 'draft', 'Draft'
     CALCULATED = 'calculated', 'Calculated'
+    INCOMPLETE = 'incomplete', 'Incomplete'
     REVIEWED = 'reviewed', 'Reviewed'
     APPROVED = 'approved', 'Approved'
     LOCKED = 'locked', 'Locked'
@@ -568,6 +569,11 @@ class PayrollRun(models.Model):
         default=PayrollRunStatus.DRAFT,
     )
     notes = models.TextField(blank=True)
+    calculation_errors = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Per-employee calculation errors from the last calculate_run().',
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -598,6 +604,19 @@ class PayrollRun(models.Model):
     @property
     def is_locked(self):
         return self.status == PayrollRunStatus.LOCKED
+
+    @property
+    def is_calculable(self):
+        """Draft / Calculated / Incomplete (unlocked) runs may be calculated."""
+        return self.status in {
+            PayrollRunStatus.DRAFT,
+            PayrollRunStatus.CALCULATED,
+            PayrollRunStatus.INCOMPLETE,
+        }
+
+    @property
+    def has_calculation_errors(self):
+        return bool(self.calculation_errors)
 
     def clean(self):
         errors = {}

@@ -34,7 +34,9 @@ from .models import (
     PayPeriod,
     PayrollPeriod,
     PayrollPeriodStatus,
+    PayrollResult,
     PayrollRun,
+    PayrollRunStatus,
     Payslip,
     SalaryComponent,
     SalaryStructure,
@@ -48,6 +50,7 @@ from .permissions import (
     CHANGE_ASSIGNMENT,
     CHANGE_COMPONENT,
     CHANGE_PERIOD,
+    CHANGE_RUN,
     CHANGE_STRUCTURE,
     DELETE_ASSIGNMENT,
     DELETE_COMPONENT,
@@ -64,7 +67,8 @@ from .permissions import (
 )
 from .reports import REPORT_BUILDERS
 from .services import generate_payslips_for_period
-from .services.payroll_engine import close_period, create_run, open_period
+from .services.exceptions import LockedRunError, PayrollCalculationError, RunNotCalculableError
+from .services.payroll_engine import calculate_run, close_period, create_run, open_period
 from .services.salary_calculator import calculate_assignment_components, calculate_structure_components
 from .services.validation import validate_structure
 
@@ -698,6 +702,65 @@ class RunDetailView(PayrollLoginPermissionMixin, PayrollNavMixin, DetailView):
 
     def get_queryset(self):
         return PayrollRun.objects.select_related('company', 'period', 'created_by')
+
+    def get_context_data(self, **kwargs):
+        from django.db.models import Sum
+
+        context = super().get_context_data(**kwargs)
+        results = (
+            PayrollResult.objects
+            .filter(run=self.object)
+            .select_related('employee')
+            .prefetch_related('components')
+            .order_by('employee__employee_code')
+        )
+        context['results'] = results
+        totals = results.aggregate(
+            gross=Sum('gross'),
+            total_earnings=Sum('total_earnings'),
+            total_deductions=Sum('total_deductions'),
+            net_salary=Sum('net_salary'),
+        )
+        context['totals'] = {
+            'gross': totals['gross'] or Decimal('0.00'),
+            'total_earnings': totals['total_earnings'] or Decimal('0.00'),
+            'total_deductions': totals['total_deductions'] or Decimal('0.00'),
+            'net_salary': totals['net_salary'] or Decimal('0.00'),
+            'employee_count': results.count(),
+        }
+        context['can_calculate'] = self.object.is_calculable and self.request.user.has_perm(
+            CHANGE_RUN
+        )
+        context['calculation_errors'] = self.object.calculation_errors or []
+        context['PayrollRunStatus'] = PayrollRunStatus
+        return context
+
+
+class RunCalculateView(PayrollLoginPermissionMixin, View):
+    permission_required = CHANGE_RUN
+
+    def post(self, request, pk):
+        run = get_object_or_404(PayrollRun.objects.select_related('period', 'company'), pk=pk)
+        try:
+            calculate_run(run, user=request.user)
+            run.refresh_from_db()
+            if run.status == PayrollRunStatus.INCOMPLETE:
+                messages.warning(
+                    request,
+                    f'Calculation incomplete for run #{run.run_number}: '
+                    f'{len(run.calculation_errors)} employee error(s). '
+                    'Failed employees have no salary result (not zeroed).',
+                )
+            else:
+                messages.success(
+                    request,
+                    f'Payroll run #{run.run_number} calculated successfully.',
+                )
+        except (LockedRunError, RunNotCalculableError, PayrollCalculationError) as exc:
+            messages.error(request, str(exc))
+        except Exception as exc:
+            messages.error(request, f'Calculation failed: {exc}')
+        return redirect('payroll:run_detail', pk=pk)
 
 
 class RunCreateView(PayrollLoginPermissionMixin, PayrollNavMixin, CreateView):

@@ -17,8 +17,75 @@
         <div class="col-12"><strong>Notes</strong><br>{{ run.notes }}</div>
         {% endif %}
     </div>
+    <div class="card-footer d-flex gap-2 flex-wrap">
+        {% if can_calculate %}
+        <form method="post" action="{% url 'payroll:run_calculate' run.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary">
+                {% if run.status == 'draft' %}Calculate{% else %}Recalculate{% endif %}
+            </button>
+        </form>
+        {% elif run.is_locked %}
+        <span class="text-muted align-self-center">Locked — calculation disabled.</span>
+        {% endif %}
+        <a href="{% url 'payroll:run_list' %}" class="btn btn-outline-secondary">Back to runs</a>
+    </div>
 </div>
 
-<p class="text-muted">Employee results and calculation will appear here in Sprint 8.2.</p>
-<a href="{% url 'payroll:run_list' %}" class="btn btn-outline-secondary">Back to runs</a>
+{% if calculation_errors %}
+<div class="alert alert-warning">
+    <strong>Per-employee calculation errors</strong>
+    <p class="mb-2 small">Failed employees do not receive a zero salary result. Fix the issues and recalculate.</p>
+    <ul class="mb-0">
+        {% for err in calculation_errors %}
+        <li><code>{{ err.employee_code }}</code>: {{ err.error }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if results %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header"><strong>Totals</strong></div>
+    <div class="card-body row g-3">
+        <div class="col-md-2"><strong>Employees</strong><br>{{ totals.employee_count }}</div>
+        <div class="col-md-2"><strong>Gross</strong><br>{{ totals.gross }}</div>
+        <div class="col-md-2"><strong>Earnings</strong><br>{{ totals.total_earnings }}</div>
+        <div class="col-md-3"><strong>Deductions</strong><br>{{ totals.total_deductions }}</div>
+        <div class="col-md-3"><strong>Net</strong><br>{{ totals.net_salary }}</div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header"><strong>Employee results</strong></div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th class="text-end">Present</th>
+                    <th class="text-end">LOP</th>
+                    <th class="text-end">Gross</th>
+                    <th class="text-end">Deductions</th>
+                    <th class="text-end">Net</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in results %}
+                <tr>
+                    <td>{{ result.employee.employee_code }} — {{ result.employee.full_name }}</td>
+                    <td class="text-end">{{ result.present_days }}</td>
+                    <td class="text-end">{{ result.lop_days }}</td>
+                    <td class="text-end">{{ result.gross }}</td>
+                    <td class="text-end">{{ result.total_deductions }}</td>
+                    <td class="text-end">{{ result.net_salary }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<p class="text-muted">No employee results yet. Use Calculate when the run is Draft, Calculated, or Incomplete.</p>
+{% endif %}
 {% endblock %}

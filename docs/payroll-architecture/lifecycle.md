@@ -23,9 +23,10 @@ flowchart LR
     C3 --> C4[Net pay]
   end
 
-  subgraph engine ["Payroll engine (v0.8.1)"]
+  subgraph engine ["Payroll engine (v0.8.1–8.2)"]
     P1[PayrollPeriod Open/Closed] --> P2[PayrollRun Draft…]
-    P2 --> P3["PayrollResult + Components (planned calc)"]
+    P2 --> P3[calculate_run + proration]
+    P3 --> P5[PayrollResult + Components]
     P2 --> P4[PayrollAuditLog]
   end
 
@@ -39,7 +40,9 @@ flowchart LR
   C4 --> O1
   O1 -.-> O3
   A3 -.->|period processed| P1
-  P3 -.->|wire later| O1
+  A4 --> P3
+  S3 --> P3
+  P5 -.->|wire later| O1
 ```
 
 ### Step summary
@@ -55,11 +58,12 @@ flowchart LR
 | 7. Net → payslip | `generate_payslip` writes `Payslip` + `PayslipItem`; skips if `finalized` | **Implemented (v0.7)** |
 | 8. Bank advice | Employee bank fields exist; dedicated NEFT/advice export | **Planned (v0.8+)** |
 | 9. Payroll period / run foundation | `PayrollPeriod` (Open/Closed, overlap checks), `PayrollRun` (Draft+status scaffold), `PayrollResult` / `PayrollResultComponent`, `PayrollAuditLog`; services under `apps/payroll/services/` | **Implemented (v0.8.1 foundation)** |
-| 10. Run calculation / lock | Attendance-linked calc, approval, immutable lock | **Planned (Sprint 8.2–8.3)** |
+| 10. Run calculation | `calculate_run`: attendance + effective assignment + formula + proration → results; Incomplete on per-employee errors; recalculate unlocked | **Implemented (Sprint 8.2)** |
+| 11. Approval / lock | Reviewed → Approved → Locked immutability | **Planned (Sprint 8.3)** |
 
 **Legacy:** `PayPeriod` / `Payslip` remain for existing payslip generation. Prefer `PayrollPeriod` / `PayrollRun` as source of truth going forward; payslip wiring is deferred.
 
-**Note:** Payslip generation today does **not** yet prorate earnings from `AttendanceMonthlySummary` (LOP/OT). Summaries are the payroll feed for that work; wiring is **Planned (v0.8+)**.
+**Proration (Sprint 8.2):** calendar days in period vs payable days (eligible days after mid-month join / exit; LOP; half-day = 0.5 present). See [calculation-sequence.md](calculation-sequence.md).
 
 ### Related
 

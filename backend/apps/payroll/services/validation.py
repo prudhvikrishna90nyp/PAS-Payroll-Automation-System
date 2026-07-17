@@ -207,3 +207,28 @@ def validate_run_creation(period, *, company=None) -> list[str]:
     if company and period.company_id != company.pk:
         errors.append('Company must match the payroll period company.')
     return errors
+
+
+def validate_run_calculable(run) -> list[str]:
+    """Validate that a run may be calculated or recalculated."""
+    from apps.payroll.models import PayrollRunStatus
+
+    errors: list[str] = []
+    if run is None:
+        return ['Payroll run is required.']
+    if run.status == PayrollRunStatus.LOCKED or run.is_locked:
+        errors.append('Cannot calculate a locked payroll run.')
+        return errors
+    if run.status in {PayrollRunStatus.REVIEWED, PayrollRunStatus.APPROVED}:
+        errors.append(
+            f'Cannot calculate a run in status "{run.get_status_display()}". '
+            'Only Draft, Calculated, or Incomplete runs may be calculated.'
+        )
+        return errors
+    if run.status not in {
+        PayrollRunStatus.DRAFT,
+        PayrollRunStatus.CALCULATED,
+        PayrollRunStatus.INCOMPLETE,
+    }:
+        errors.append(f'Run status "{run.get_status_display()}" is not calculable.')
+    return errors

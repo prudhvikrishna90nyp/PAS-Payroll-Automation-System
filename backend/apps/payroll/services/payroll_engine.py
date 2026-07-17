@@ -1,8 +1,4 @@
-"""Payroll engine orchestration (Sprint 8.1 foundation).
-
-Full calculation / approval / locking land in later 8.x sprints.
-This module owns period open/close and draft run creation under transactions.
-"""
+"""Payroll engine orchestration (periods, runs, calculation — Sprint 8.2)."""
 
 from __future__ import annotations
 
@@ -17,9 +13,23 @@ from apps.payroll.models import (
     PayrollRunStatus,
 )
 from apps.payroll.services.audit import write_audit_log
+from apps.payroll.services.attendance_loader import load_attendance_for_run
+from apps.payroll.services.calculator import (
+    eligible_employees_for_run,
+    safe_calculate_employee,
+)
+from apps.payroll.services.exceptions import (
+    EmployeeCalculationError,
+    LockedRunError,
+    MissingSalaryAssignmentError,
+    RunNotCalculableError,
+)
+from apps.payroll.services.salary_loader import resolve_assignment_for_period
+from apps.payroll.services.snapshot import clear_run_results, snapshot_employee_result
 from apps.payroll.services.validation import (
     raise_if_errors,
     validate_payroll_period,
+    validate_run_calculable,
     validate_run_creation,
 )
 
@@ -144,20 +154,106 @@ def create_run(
     return run
 
 
-@transaction.atomic
-def process_company_run(run: PayrollRun, user=None) -> PayrollRun:
-    """Company-level processing scaffold (calculation lands in 8.2).
+def _assert_run_calculable(run: PayrollRun) -> None:
+    errors = validate_run_calculable(run)
+    if not errors:
+        return
+    message = errors[0]
+    if run.is_locked or run.status == PayrollRunStatus.LOCKED:
+        raise LockedRunError(message)
+    raise RunNotCalculableError(message)
 
-    Wrapped in ``transaction.atomic`` so later steps share one unit of work.
+
+@transaction.atomic
+def calculate_run(run: PayrollRun, user=None) -> PayrollRun:
+    """Run the full calculation pipeline for a payroll run.
+
+    Pipeline:
+      eligible employees → attendance loader → salary assignment loader →
+      formula evaluation → proration → PayrollResult / component snapshot.
+
+    Unlocked Draft / Calculated / Incomplete runs may be recalculated; previous
+    results are replaced atomically. Locked (and reviewed/approved) runs are
+    rejected. Per-employee failures do not create zero-salary results; errors
+    are stored on the run and the status becomes Incomplete when any fail.
+    Unexpected errors outside per-employee handling roll back the transaction.
     """
-    if run.status == PayrollRunStatus.LOCKED:
-        raise ValidationError('Cannot process a locked payroll run.')
-    # Stub: attendance_loader / salary_loader / earnings / deductions in 8.2+
+    run = PayrollRun.objects.select_for_update().select_related('period', 'company').get(pk=run.pk)
+    _assert_run_calculable(run)
+
+    previous_status = run.status
+    employees = list(eligible_employees_for_run(run))
+    attendance_map = load_attendance_for_run(run, employees=employees)
+
+    # Replace prior snapshots for unlocked recalculation.
+    clear_run_results(run)
+
+    errors: list[dict] = []
+    success_count = 0
+
+    for employee in employees:
+        sid = transaction.savepoint()
+        try:
+            try:
+                assignment = resolve_assignment_for_period(employee, run.period)
+            except MissingSalaryAssignmentError as exc:
+                raise EmployeeCalculationError(
+                    str(exc),
+                    employee=employee,
+                    code='missing_salary_assignment',
+                ) from exc
+
+            calc = safe_calculate_employee(
+                employee=employee,
+                period=run.period,
+                assignment=assignment,
+                attendance=attendance_map.get(employee.pk),
+            )
+            snapshot_employee_result(run, calc)
+            transaction.savepoint_commit(sid)
+            success_count += 1
+        except EmployeeCalculationError as exc:
+            transaction.savepoint_rollback(sid)
+            entry = {
+                'employee_id': employee.pk,
+                'employee_code': employee.employee_code,
+                'error': exc.message,
+                'code': getattr(exc, 'code', 'employee_error'),
+            }
+            errors.append(entry)
+            write_audit_log(
+                action='employee_calculation_error',
+                user=user,
+                period=run.period,
+                run=run,
+                details=entry,
+            )
+
+    if errors:
+        run.status = PayrollRunStatus.INCOMPLETE
+    else:
+        run.status = PayrollRunStatus.CALCULATED
+    run.calculation_errors = errors
+    run.save(update_fields=['status', 'calculation_errors', 'updated_at'])
+
     write_audit_log(
-        action='run_process_scaffold',
+        action='run_calculate',
         user=user,
         period=run.period,
         run=run,
-        details={'status': run.status, 'note': 'Scaffold only; calculation deferred to 8.2'},
+        details={
+            'previous_status': previous_status,
+            'status': run.status,
+            'employee_count': len(employees),
+            'success_count': success_count,
+            'error_count': len(errors),
+            'errors': errors,
+        },
     )
     return run
+
+
+@transaction.atomic
+def process_company_run(run: PayrollRun, user=None) -> PayrollRun:
+    """Alias for ``calculate_run`` (company-level processing entry point)."""
+    return calculate_run(run, user=user)

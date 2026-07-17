@@ -12,7 +12,14 @@ from .salary_calculator import (
 )
 from .formula_engine import FormulaError, evaluate_formula, extract_references
 from .validation import SalaryValidationError, validate_structure, validate_component
-from .payroll_engine import close_period, create_period, create_run, open_period
+from .payroll_engine import (
+    calculate_run,
+    close_period,
+    create_period,
+    create_run,
+    open_period,
+    process_company_run,
+)
 from .audit import write_audit_log
 
 __all__ = [
@@ -21,6 +28,7 @@ __all__ = [
     'SalaryValidationError',
     'calculate_assignment_components',
     'calculate_payslip_amounts',
+    'calculate_run',
     'calculate_structure_components',
     'close_period',
     'create_period',
@@ -30,6 +38,7 @@ __all__ = [
     'generate_payslip',
     'generate_payslips_for_period',
     'open_period',
+    'process_company_run',
     'validate_component',
     'validate_structure',
     'write_audit_log',
