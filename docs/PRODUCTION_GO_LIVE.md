@@ -6,6 +6,7 @@
 
 Related:
 
+- [FIRST_COMPANY_SETUP.md](FIRST_COMPANY_SETUP.md) — machine-specific first staging prep (Postgres, `.env`, admin, UI next steps)
 - [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) — install / migrate / smoke
 - [PARALLEL_RUN_CHECKLIST.md](PARALLEL_RUN_CHECKLIST.md) — comparison worksheet
 - [BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md) — backups

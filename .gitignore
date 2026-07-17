@@ -27,6 +27,9 @@ backend/staticfiles/
 .env.*
 !.env.example
 
+# Local Postgres data cluster (user-space / leftover; never commit)
+backend/.pgdata/
+
 # IDE
 .vscode/
 .idea/
