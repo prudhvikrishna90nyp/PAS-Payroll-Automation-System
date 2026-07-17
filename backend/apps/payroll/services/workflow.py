@@ -121,11 +121,10 @@ def reopen_locked_run(
     user=None,
     remarks: str = '',
 ) -> PayrollRun:
-    """Superuser-only: Locked → Approved with mandatory remarks and full audit.
+    """Superuser-only: Locked → Calculated with mandatory remarks and full audit.
 
-    Non-superusers are always denied. Reopen does not allow recalculation until
-    the run is transitioned further back via a future sprint (Approved still
-    blocks calculate_run).
+    Non-superusers are always denied. Returning to Calculated allows
+    recalculation and a fresh review → approve → lock cycle.
     """
     assert_can_reopen(user)
     remarks = (remarks or '').strip()
@@ -145,14 +144,14 @@ def reopen_locked_run(
             raise InvalidTransitionError(
                 'Only a Locked payroll run can be reopened.'
             )
-        locked.status = PayrollRunStatus.APPROVED
+        locked.status = PayrollRunStatus.CALCULATED
         locked.save(update_fields=['status', 'updated_at'])
         write_status_transition_audit(
             action='run_reopen',
             run=locked,
             user=user,
             previous_status=previous,
-            new_status=PayrollRunStatus.APPROVED,
+            new_status=PayrollRunStatus.CALCULATED,
             remarks=remarks,
             extra={'reopened_by_superuser': True},
         )

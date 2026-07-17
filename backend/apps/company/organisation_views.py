@@ -1,5 +1,7 @@
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.views import redirect_to_login
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
@@ -10,6 +12,31 @@ from apps.clients.models import Client
 
 from .forms import BranchForm, DepartmentForm, DesignationForm
 from .models import Branch, Company, Department, Designation
+from .permissions import (
+    ADD_BRANCH,
+    ADD_DEPARTMENT,
+    ADD_DESIGNATION,
+    CHANGE_BRANCH,
+    CHANGE_DEPARTMENT,
+    CHANGE_DESIGNATION,
+    DELETE_BRANCH,
+    DELETE_DEPARTMENT,
+    DELETE_DESIGNATION,
+    VIEW_BRANCH,
+    VIEW_DEPARTMENT,
+    VIEW_DESIGNATION,
+)
+
+
+class OrganisationLoginPermissionMixin(LoginRequiredMixin, PermissionRequiredMixin):
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect_to_login(
+                self.request.get_full_path(),
+                self.get_login_url(),
+                self.get_redirect_field_name(),
+            )
+        raise PermissionDenied(self.get_permission_denied_message())
 
 
 class OrganisationFilterMixin:
@@ -88,43 +115,49 @@ class OrganisationUpdateMixin:
         return super().form_invalid(form)
 
 
-class BranchListView(OrganisationFilterMixin, LoginRequiredMixin, ListView):
+class BranchListView(OrganisationFilterMixin, OrganisationLoginPermissionMixin, ListView):
     model = Branch
     template_name = 'organisation/branch_list.html'
     context_object_name = 'branches'
     search_fields = ('branch_name', 'code', 'company__company_name', 'state')
     name_field = 'branch_name'
+    permission_required = VIEW_BRANCH
 
     def get_base_queryset(self):
         return Branch.objects.select_related('company', 'company__client')
 
 
-class BranchDetailView(LoginRequiredMixin, DetailView):
+class BranchDetailView(OrganisationLoginPermissionMixin, DetailView):
     model = Branch
     template_name = 'organisation/branch_detail.html'
     context_object_name = 'branch'
+    permission_required = VIEW_BRANCH
 
     def get_queryset(self):
         return Branch.objects.select_related('company', 'company__client', 'created_by', 'updated_by')
 
 
-class BranchCreateView(OrganisationCreateMixin, LoginRequiredMixin, CreateView):
+class BranchCreateView(OrganisationCreateMixin, OrganisationLoginPermissionMixin, CreateView):
     model = Branch
     form_class = BranchForm
     template_name = 'organisation/branch_form.html'
     success_url = reverse_lazy('organisation:branch_list')
     success_message = 'Branch created successfully.'
+    permission_required = ADD_BRANCH
 
 
-class BranchUpdateView(OrganisationUpdateMixin, LoginRequiredMixin, UpdateView):
+class BranchUpdateView(OrganisationUpdateMixin, OrganisationLoginPermissionMixin, UpdateView):
     model = Branch
     form_class = BranchForm
     template_name = 'organisation/branch_form.html'
     success_url = reverse_lazy('organisation:branch_list')
     success_message = 'Branch updated successfully.'
+    permission_required = CHANGE_BRANCH
 
 
-class BranchArchiveView(LoginRequiredMixin, View):
+class BranchArchiveView(OrganisationLoginPermissionMixin, View):
+    permission_required = DELETE_BRANCH
+
     def post(self, request, pk):
         branch = get_object_or_404(Branch, pk=pk)
         branch.is_active = False
@@ -134,7 +167,9 @@ class BranchArchiveView(LoginRequiredMixin, View):
         return redirect('organisation:branch_list')
 
 
-class BranchRestoreView(LoginRequiredMixin, View):
+class BranchRestoreView(OrganisationLoginPermissionMixin, View):
+    permission_required = CHANGE_BRANCH
+
     def post(self, request, pk):
         branch = get_object_or_404(Branch, pk=pk)
         branch.is_active = True
@@ -144,43 +179,49 @@ class BranchRestoreView(LoginRequiredMixin, View):
         return redirect('organisation:branch_list')
 
 
-class DepartmentListView(OrganisationFilterMixin, LoginRequiredMixin, ListView):
+class DepartmentListView(OrganisationFilterMixin, OrganisationLoginPermissionMixin, ListView):
     model = Department
     template_name = 'organisation/department_list.html'
     context_object_name = 'departments'
     search_fields = ('name', 'code', 'company__company_name')
     name_field = 'name'
+    permission_required = VIEW_DEPARTMENT
 
     def get_base_queryset(self):
         return Department.objects.select_related('company', 'company__client')
 
 
-class DepartmentDetailView(LoginRequiredMixin, DetailView):
+class DepartmentDetailView(OrganisationLoginPermissionMixin, DetailView):
     model = Department
     template_name = 'organisation/department_detail.html'
     context_object_name = 'department'
+    permission_required = VIEW_DEPARTMENT
 
     def get_queryset(self):
         return Department.objects.select_related('company', 'company__client', 'created_by', 'updated_by')
 
 
-class DepartmentCreateView(OrganisationCreateMixin, LoginRequiredMixin, CreateView):
+class DepartmentCreateView(OrganisationCreateMixin, OrganisationLoginPermissionMixin, CreateView):
     model = Department
     form_class = DepartmentForm
     template_name = 'organisation/department_form.html'
     success_url = reverse_lazy('organisation:department_list')
     success_message = 'Department created successfully.'
+    permission_required = ADD_DEPARTMENT
 
 
-class DepartmentUpdateView(OrganisationUpdateMixin, LoginRequiredMixin, UpdateView):
+class DepartmentUpdateView(OrganisationUpdateMixin, OrganisationLoginPermissionMixin, UpdateView):
     model = Department
     form_class = DepartmentForm
     template_name = 'organisation/department_form.html'
     success_url = reverse_lazy('organisation:department_list')
     success_message = 'Department updated successfully.'
+    permission_required = CHANGE_DEPARTMENT
 
 
-class DepartmentArchiveView(LoginRequiredMixin, View):
+class DepartmentArchiveView(OrganisationLoginPermissionMixin, View):
+    permission_required = DELETE_DEPARTMENT
+
     def post(self, request, pk):
         department = get_object_or_404(Department, pk=pk)
         department.is_active = False
@@ -190,7 +231,9 @@ class DepartmentArchiveView(LoginRequiredMixin, View):
         return redirect('organisation:department_list')
 
 
-class DepartmentRestoreView(LoginRequiredMixin, View):
+class DepartmentRestoreView(OrganisationLoginPermissionMixin, View):
+    permission_required = CHANGE_DEPARTMENT
+
     def post(self, request, pk):
         department = get_object_or_404(Department, pk=pk)
         department.is_active = True
@@ -200,43 +243,49 @@ class DepartmentRestoreView(LoginRequiredMixin, View):
         return redirect('organisation:department_list')
 
 
-class DesignationListView(OrganisationFilterMixin, LoginRequiredMixin, ListView):
+class DesignationListView(OrganisationFilterMixin, OrganisationLoginPermissionMixin, ListView):
     model = Designation
     template_name = 'organisation/designation_list.html'
     context_object_name = 'designations'
     search_fields = ('name', 'code', 'company__company_name')
     name_field = 'name'
+    permission_required = VIEW_DESIGNATION
 
     def get_base_queryset(self):
         return Designation.objects.select_related('company', 'company__client')
 
 
-class DesignationDetailView(LoginRequiredMixin, DetailView):
+class DesignationDetailView(OrganisationLoginPermissionMixin, DetailView):
     model = Designation
     template_name = 'organisation/designation_detail.html'
     context_object_name = 'designation'
+    permission_required = VIEW_DESIGNATION
 
     def get_queryset(self):
         return Designation.objects.select_related('company', 'company__client', 'created_by', 'updated_by')
 
 
-class DesignationCreateView(OrganisationCreateMixin, LoginRequiredMixin, CreateView):
+class DesignationCreateView(OrganisationCreateMixin, OrganisationLoginPermissionMixin, CreateView):
     model = Designation
     form_class = DesignationForm
     template_name = 'organisation/designation_form.html'
     success_url = reverse_lazy('organisation:designation_list')
     success_message = 'Designation created successfully.'
+    permission_required = ADD_DESIGNATION
 
 
-class DesignationUpdateView(OrganisationUpdateMixin, LoginRequiredMixin, UpdateView):
+class DesignationUpdateView(OrganisationUpdateMixin, OrganisationLoginPermissionMixin, UpdateView):
     model = Designation
     form_class = DesignationForm
     template_name = 'organisation/designation_form.html'
     success_url = reverse_lazy('organisation:designation_list')
     success_message = 'Designation updated successfully.'
+    permission_required = CHANGE_DESIGNATION
 
 
-class DesignationArchiveView(LoginRequiredMixin, View):
+class DesignationArchiveView(OrganisationLoginPermissionMixin, View):
+    permission_required = DELETE_DESIGNATION
+
     def post(self, request, pk):
         designation = get_object_or_404(Designation, pk=pk)
         designation.is_active = False
@@ -246,7 +295,9 @@ class DesignationArchiveView(LoginRequiredMixin, View):
         return redirect('organisation:designation_list')
 
 
-class DesignationRestoreView(LoginRequiredMixin, View):
+class DesignationRestoreView(OrganisationLoginPermissionMixin, View):
+    permission_required = CHANGE_DESIGNATION
+
     def post(self, request, pk):
         designation = get_object_or_404(Designation, pk=pk)
         designation.is_active = True

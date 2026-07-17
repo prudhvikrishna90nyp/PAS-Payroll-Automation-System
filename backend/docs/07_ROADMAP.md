@@ -1,6 +1,6 @@
 # ROADMAP
 
-## Phase 1 — Foundation (in progress)
+## Phase 1 — Foundation (complete)
 
 - [x] Django monorepo (`backend/` + `frontend/` placeholder)
 - [x] **Client Management module** (`apps.clients`) — first complete business module
@@ -22,8 +22,8 @@
 - [ ] REST API (`/api/v1/`)
 - [x] Employee CRUD from web UI
 - [x] Attendance marking from web UI
-- [ ] Role-based access (HR, Admin, Employee)
-- [ ] Payslip approval workflow (draft → finalized)
+- [x] Role-based access (HR, Admin, Payroll, Viewer) — seeded groups + RC1 hardening
+- [x] Payslip / payroll approval workflow (Draft → Calculated → Reviewed → Approved → Locked)
 - [ ] Email payslips to employees
 
 ## Phase 3 — Statutory Compliance
@@ -34,11 +34,12 @@
 - [x] ECR and ESI return file generation
 - [ ] PF challan and remittance reports (enhance)
 
-## Phase 3b — v1.0 RC Stabilization (next)
+## Phase 3b — v1.0 RC Stabilization
 
+- [x] **v1.0.0-rc1** — permission hardening, reopen→recalc, release docs, regression suite (2026-07-17)
 - [ ] Bank advice / NEFT export
-- [ ] PDF payslips
-- [ ] Production hardening and regression suite
+- [ ] Production hardening beyond RC (volume N+1, automated backups)
+- [ ] Full **v1.0.0** GA after RC soak
 
 ## Phase 4 — Advanced Features
 
@@ -46,7 +47,7 @@
 - [ ] Leave management
 - [ ] Salary revision history
 - [ ] Loan and advance deductions
-- [ ] Audit log for payroll changes
+- [x] Audit log for payroll changes (`PayrollAuditLog`; `apps.audit` stub remains)
 
 ## Phase 5 — Production & Scale
 

@@ -1,5 +1,7 @@
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.views import redirect_to_login
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
@@ -10,13 +12,26 @@ from apps.clients.models import Client
 
 from .forms import CompanyForm
 from .models import Company
+from .permissions import ADD_COMPANY, CHANGE_COMPANY, DELETE_COMPANY, VIEW_COMPANY
 
 
-class CompanyListView(LoginRequiredMixin, ListView):
+class CompanyLoginPermissionMixin(LoginRequiredMixin, PermissionRequiredMixin):
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect_to_login(
+                self.request.get_full_path(),
+                self.get_login_url(),
+                self.get_redirect_field_name(),
+            )
+        raise PermissionDenied(self.get_permission_denied_message())
+
+
+class CompanyListView(CompanyLoginPermissionMixin, ListView):
     model = Company
     template_name = 'company/company_list.html'
     context_object_name = 'companies'
     paginate_by = 10
+    permission_required = VIEW_COMPANY
 
     def get_queryset(self):
         queryset = Company.objects.select_related('client')
@@ -54,20 +69,22 @@ class CompanyListView(LoginRequiredMixin, ListView):
         return context
 
 
-class CompanyDetailView(LoginRequiredMixin, DetailView):
+class CompanyDetailView(CompanyLoginPermissionMixin, DetailView):
     model = Company
     template_name = 'company/company_detail.html'
     context_object_name = 'company'
+    permission_required = VIEW_COMPANY
 
     def get_queryset(self):
         return Company.objects.select_related('client', 'created_by', 'updated_by')
 
 
-class CompanyCreateView(LoginRequiredMixin, CreateView):
+class CompanyCreateView(CompanyLoginPermissionMixin, CreateView):
     model = Company
     form_class = CompanyForm
     template_name = 'company/company_form.html'
     success_url = reverse_lazy('company:company_list')
+    permission_required = ADD_COMPANY
 
     def get_initial(self):
         initial = super().get_initial()
@@ -87,11 +104,12 @@ class CompanyCreateView(LoginRequiredMixin, CreateView):
         return super().form_invalid(form)
 
 
-class CompanyUpdateView(LoginRequiredMixin, UpdateView):
+class CompanyUpdateView(CompanyLoginPermissionMixin, UpdateView):
     model = Company
     form_class = CompanyForm
     template_name = 'company/company_form.html'
     success_url = reverse_lazy('company:company_list')
+    permission_required = CHANGE_COMPANY
 
     def form_valid(self, form):
         form.instance.updated_by = self.request.user
@@ -103,7 +121,9 @@ class CompanyUpdateView(LoginRequiredMixin, UpdateView):
         return super().form_invalid(form)
 
 
-class CompanyArchiveView(LoginRequiredMixin, View):
+class CompanyArchiveView(CompanyLoginPermissionMixin, View):
+    permission_required = DELETE_COMPANY
+
     def post(self, request, pk):
         company = get_object_or_404(Company, pk=pk)
         company.is_active = False
@@ -113,7 +133,9 @@ class CompanyArchiveView(LoginRequiredMixin, View):
         return redirect('company:company_list')
 
 
-class CompanyRestoreView(LoginRequiredMixin, View):
+class CompanyRestoreView(CompanyLoginPermissionMixin, View):
+    permission_required = CHANGE_COMPANY
+
     def post(self, request, pk):
         company = get_object_or_404(Company, pk=pk)
         company.is_active = True

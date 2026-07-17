@@ -105,8 +105,16 @@ gunicorn config.wsgi:application --bind 0.0.0.0:8000
 - [ ] Enable HTTPS (`SECURE_SSL_REDIRECT=True`)
 - [ ] Run `collectstatic` (WhiteNoise serves static files)
 - [ ] Configure media storage (S3 or nginx for `/media/`)
-- [ ] Set up database backups
+- [ ] Set up database backups — see `docs/BACKUP_AND_RESTORE.md`
 - [ ] Create admin superuser
+- [ ] Assign users to role groups (Admin / HR / Payroll / Viewer)
+- [ ] Follow `docs/DEPLOYMENT_CHECKLIST.md` for RC/production cutover
+
+---
+
+## Role groups & seeds
+
+On `migrate`, apps seed Django Groups via `post_migrate` (merge-style). Statutory PF/ESI/PT/TDS **rules** are seeded lazily on payroll calculation. See `docs/ROLES_AND_PERMISSIONS.md`.
 
 ---
 

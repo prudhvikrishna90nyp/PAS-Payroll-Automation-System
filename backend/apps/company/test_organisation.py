@@ -10,9 +10,30 @@ from .models import Branch, Company, Department, Designation
 
 class OrganisationTestMixin:
     def setUp(self):
+        from django.contrib.auth.models import Permission
+
         self.user = get_user_model().objects.create_user(
             username='orguser',
             password='TestPassword123!',
+        )
+        self.user.user_permissions.add(
+            *Permission.objects.filter(
+                content_type__app_label='company',
+                codename__in=[
+                    'view_branch',
+                    'add_branch',
+                    'change_branch',
+                    'delete_branch',
+                    'view_department',
+                    'add_department',
+                    'change_department',
+                    'delete_department',
+                    'view_designation',
+                    'add_designation',
+                    'change_designation',
+                    'delete_designation',
+                ],
+            )
         )
         self.client_record = Client.objects.create(
             client_code='CLI001',

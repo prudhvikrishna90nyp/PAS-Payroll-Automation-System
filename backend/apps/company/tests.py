@@ -72,9 +72,22 @@ class CompanyFormTests(TestCase):
 
 class CompanyViewTests(TestCase):
     def setUp(self):
+        from django.contrib.auth.models import Permission
+
         self.user = get_user_model().objects.create_user(
             username='companyuser',
             password='TestPassword123!',
+        )
+        self.user.user_permissions.add(
+            *Permission.objects.filter(
+                content_type__app_label='company',
+                codename__in=[
+                    'view_company',
+                    'add_company',
+                    'change_company',
+                    'delete_company',
+                ],
+            )
         )
         self.client.login(username='companyuser', password='TestPassword123!')
 
