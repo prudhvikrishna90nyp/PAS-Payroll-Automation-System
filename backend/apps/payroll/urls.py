@@ -27,11 +27,29 @@ urlpatterns = [
     path('assignments/<int:pk>/edit/', views.AssignmentUpdateView.as_view(), name='assignment_edit'),
     path('assignments/<int:pk>/archive/', views.AssignmentArchiveView.as_view(), name='assignment_archive'),
 
+    # Payroll periods & runs (Sprint 8.1)
+    path('periods/', views.PeriodListView.as_view(), name='period_list'),
+    path('periods/add/', views.PeriodCreateView.as_view(), name='period_add'),
+    path('periods/<int:pk>/', views.PeriodDetailView.as_view(), name='period_detail'),
+    path('periods/<int:pk>/close/', views.PeriodCloseView.as_view(), name='period_close'),
+    path('periods/<int:pk>/open/', views.PeriodOpenView.as_view(), name='period_open'),
+    path('runs/', views.RunListView.as_view(), name='run_list'),
+    path('runs/add/', views.RunCreateView.as_view(), name='run_add'),
+    path('runs/<int:pk>/', views.RunDetailView.as_view(), name='run_detail'),
+    path('runs/<int:pk>/calculate/', views.RunCalculateView.as_view(), name='run_calculate'),
+    path('runs/<int:pk>/review/', views.RunReviewView.as_view(), name='run_review'),
+    path('runs/<int:pk>/approve/', views.RunApproveView.as_view(), name='run_approve'),
+    path('runs/<int:pk>/lock/', views.RunLockView.as_view(), name='run_lock'),
+    path('runs/<int:run_id>/results/<int:result_id>/payslip/', views.PayslipPreviewView.as_view(), name='payslip_preview'),
+
     # Reports
     path('reports/', views.PayrollReportIndexView.as_view(), name='report_index'),
+    # Engine reports (Sprint 8.4) — routes precede the structure export catch-all.
+    path('reports/engine/<slug:report_slug>/', views.EngineReportPageView.as_view(), name='engine_report'),
+    path('reports/engine/<slug:report_slug>/export/', views.EngineReportExportView.as_view(), name='engine_report_export'),
     path('reports/<str:report_type>/', views.PayrollReportDownloadView.as_view(), name='report_download'),
 
-    # Payslips
+    # Payslips (legacy PayPeriod)
     path('payslips/', views.payslip_list, name='payslip_list'),
     path('payslips/<int:pk>/', views.payslip_detail, name='payslip_detail'),
     path('payslips/<int:pk>/pdf/', views.payslip_pdf, name='payslip_pdf'),

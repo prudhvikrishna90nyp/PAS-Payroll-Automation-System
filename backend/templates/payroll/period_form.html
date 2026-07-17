@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Add Payroll Period{% endblock %}
+{% block page_heading %}Add Payroll Period{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-body row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Company</label>
+                {{ form.company }}
+                {% for e in form.company.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Month</label>
+                {{ form.month }}
+                {% for e in form.month.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Year</label>
+                {{ form.year }}
+                {% for e in form.year.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                {{ form.status }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Start date</label>
+                {{ form.start_date }}
+                {% for e in form.start_date.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">End date</label>
+                {{ form.end_date }}
+                {% for e in form.end_date.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% url 'payroll:period_list' %}" class="btn btn-outline-secondary">Cancel</a>
+</form>
+{% endblock %}

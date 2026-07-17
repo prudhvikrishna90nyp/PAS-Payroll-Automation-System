@@ -432,3 +432,400 @@ class EmployeeSalaryAssignment(SoftDeleteModel):
         except Exception:
             # Assignment remains valid even if formula preview fails.
             pass
+
+
+# ---------------------------------------------------------------------------
+# Payroll engine foundation (Sprint 8.1 / v0.8.1)
+# Source of truth for company periods and runs going forward.
+# Legacy PayPeriod / Payslip remain for existing payslip generation until
+# payslip wiring is migrated in a later sprint.
+# ---------------------------------------------------------------------------
+
+
+class PayrollPeriodStatus(models.TextChoices):
+    OPEN = 'open', 'Open'
+    CLOSED = 'closed', 'Closed'
+
+
+class PayrollRunStatus(models.TextChoices):
+    DRAFT = 'draft', 'Draft'
+    CALCULATED = 'calculated', 'Calculated'
+    INCOMPLETE = 'incomplete', 'Incomplete'
+    REVIEWED = 'reviewed', 'Reviewed'
+    APPROVED = 'approved', 'Approved'
+    LOCKED = 'locked', 'Locked'
+
+
+class PayrollPeriod(models.Model):
+    """Company payroll calendar period. Prefer this over legacy PayPeriod."""
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name='payroll_periods',
+    )
+    month = models.PositiveSmallIntegerField()
+    year = models.PositiveIntegerField()
+    start_date = models.DateField()
+    end_date = models.DateField()
+    status = models.CharField(
+        max_length=20,
+        choices=PayrollPeriodStatus.choices,
+        default=PayrollPeriodStatus.OPEN,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='payroll_period_created_records',
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='payroll_period_updated_records',
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
+    class Meta:
+        ordering = ['-year', '-month', 'company__company_name']
+        verbose_name = 'Payroll Period'
+        verbose_name_plural = 'Payroll Periods'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['company', 'month', 'year'],
+                name='uniq_payroll_period_company_month_year',
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f'{self.company.company_name} — {self.month:02d}/{self.year} '
+            f'({self.get_status_display()})'
+        )
+
+    def get_absolute_url(self):
+        return reverse('payroll:period_detail', kwargs={'pk': self.pk})
+
+    @property
+    def is_open(self):
+        return self.status == PayrollPeriodStatus.OPEN
+
+    def clean(self):
+        errors = {}
+        if self.month is not None and (self.month < 1 or self.month > 12):
+            errors['month'] = 'Month must be between 1 and 12.'
+        if self.start_date and self.end_date and self.start_date > self.end_date:
+            errors['end_date'] = 'End date must be on or after start date.'
+        if self.company_id and self.start_date and self.end_date:
+            overlap = (
+                PayrollPeriod.objects
+                .filter(company_id=self.company_id)
+                .exclude(pk=self.pk)
+                .filter(start_date__lte=self.end_date, end_date__gte=self.start_date)
+            )
+            if overlap.exists():
+                other = overlap.first()
+                errors['__all__'] = (
+                    f'Date range overlaps existing period '
+                    f'{other.month:02d}/{other.year} '
+                    f'({other.start_date} – {other.end_date}).'
+                )
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        # Skip full_clean when only status/audit fields change (open/close).
+        if kwargs.get('update_fields') is None:
+            self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class PayrollRun(models.Model):
+    """Versioned payroll processing run for a company period."""
+
+    period = models.ForeignKey(
+        PayrollPeriod,
+        on_delete=models.CASCADE,
+        related_name='runs',
+    )
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name='payroll_runs',
+    )
+    run_number = models.PositiveIntegerField(
+        default=1,
+        help_text='Version number within the period (1, 2, …).',
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=PayrollRunStatus.choices,
+        default=PayrollRunStatus.DRAFT,
+    )
+    notes = models.TextField(blank=True)
+    calculation_errors = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Per-employee calculation errors from the last calculate_run().',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='payroll_runs_created',
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at', '-run_number']
+        verbose_name = 'Payroll Run'
+        verbose_name_plural = 'Payroll Runs'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['period', 'run_number'],
+                name='uniq_payroll_run_period_number',
+            ),
+        ]
+        permissions = [
+            ('review_payrollrun', 'Can review payroll run'),
+            ('approve_payrollrun', 'Can approve payroll run'),
+            ('lock_payrollrun', 'Can lock payroll run'),
+        ]
+
+    def __str__(self):
+        return f'{self.company.company_name} run #{self.run_number} ({self.get_status_display()})'
+
+    def get_absolute_url(self):
+        return reverse('payroll:run_detail', kwargs={'pk': self.pk})
+
+    @property
+    def is_locked(self):
+        return self.status == PayrollRunStatus.LOCKED
+
+    @property
+    def is_calculable(self):
+        """Draft / Calculated / Incomplete (unlocked) runs may be calculated."""
+        return self.status in {
+            PayrollRunStatus.DRAFT,
+            PayrollRunStatus.CALCULATED,
+            PayrollRunStatus.INCOMPLETE,
+        }
+
+    @property
+    def has_calculation_errors(self):
+        return bool(self.calculation_errors)
+
+    def clean(self):
+        errors = {}
+        if self.period_id and self.company_id and self.period.company_id != self.company_id:
+            errors['company'] = 'Company must match the payroll period company.'
+        if self.period_id and self.period.status == PayrollPeriodStatus.CLOSED:
+            if not self.pk:
+                errors['period'] = 'Cannot create a run for a closed payroll period.'
+        if errors:
+            raise ValidationError(errors)
+
+    def delete(self, *args, **kwargs):
+        if self.pk:
+            locked = (
+                PayrollRun.objects
+                .filter(pk=self.pk, status=PayrollRunStatus.LOCKED)
+                .exists()
+            )
+            if locked:
+                raise ValidationError('Cannot delete a locked payroll run.')
+        return super().delete(*args, **kwargs)
+
+
+class PayrollResult(models.Model):
+    """Per-employee snapshot for a payroll run. Immutable intent when run is locked."""
+
+    run = models.ForeignKey(
+        PayrollRun,
+        on_delete=models.CASCADE,
+        related_name='results',
+    )
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name='payroll_results',
+    )
+    present_days = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    absent_days = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    lop_days = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    overtime_hours = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    gross = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+    )
+    total_earnings = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+    )
+    total_deductions = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+    )
+    net_salary = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+    )
+    ctc_snapshot = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Optional CTC snapshot at calculation time.',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['employee__employee_code']
+        verbose_name = 'Payroll Result'
+        verbose_name_plural = 'Payroll Results'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['run', 'employee'],
+                name='uniq_payroll_result_run_employee',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.employee.employee_code} @ run #{self.run.run_number}'
+
+    def clean(self):
+        if self.pk and self.run_id:
+            if PayrollRun.objects.filter(pk=self.run_id, status=PayrollRunStatus.LOCKED).exists():
+                raise ValidationError('Cannot modify payroll results after the run is locked.')
+
+    def save(self, *args, **kwargs):
+        if self.pk and self.run_id:
+            if PayrollRun.objects.filter(pk=self.run_id, status=PayrollRunStatus.LOCKED).exists():
+                raise ValidationError('Cannot modify payroll results after the run is locked.')
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.run_id and PayrollRun.objects.filter(
+            pk=self.run_id, status=PayrollRunStatus.LOCKED
+        ).exists():
+            raise ValidationError('Cannot delete payroll results after the run is locked.')
+        return super().delete(*args, **kwargs)
+
+
+class PayrollResultComponent(models.Model):
+    """Line-level earning/deduction component on a payroll result."""
+
+    result = models.ForeignKey(
+        PayrollResult,
+        on_delete=models.CASCADE,
+        related_name='components',
+    )
+    component_code = models.CharField(max_length=30)
+    component_name = models.CharField(max_length=100)
+    component_type = models.CharField(max_length=30, choices=ComponentType.choices)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    calculation_detail = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Formula inputs, rates, or other calculation metadata.',
+    )
+
+    class Meta:
+        ordering = ['component_type', 'component_code']
+        verbose_name = 'Payroll Result Component'
+        verbose_name_plural = 'Payroll Result Components'
+
+    def __str__(self):
+        return f'{self.component_code}: {self.amount}'
+
+    def _run_is_locked(self) -> bool:
+        if not self.result_id:
+            return False
+        return PayrollRun.objects.filter(
+            results__pk=self.result_id,
+            status=PayrollRunStatus.LOCKED,
+        ).exists()
+
+    def save(self, *args, **kwargs):
+        if self.pk and self._run_is_locked():
+            raise ValidationError(
+                'Cannot modify payroll result components after the run is locked.'
+            )
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self._run_is_locked():
+            raise ValidationError(
+                'Cannot delete payroll result components after the run is locked.'
+            )
+        return super().delete(*args, **kwargs)
+
+
+class PayrollAuditLog(models.Model):
+    """Audit trail for period and run lifecycle actions."""
+
+    period = models.ForeignKey(
+        PayrollPeriod,
+        on_delete=models.CASCADE,
+        related_name='audit_logs',
+        null=True,
+        blank=True,
+    )
+    run = models.ForeignKey(
+        PayrollRun,
+        on_delete=models.CASCADE,
+        related_name='audit_logs',
+        null=True,
+        blank=True,
+    )
+    action = models.CharField(max_length=50)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='payroll_audit_logs',
+        null=True,
+        blank=True,
+    )
+    timestamp = models.DateTimeField(auto_now_add=True)
+    details = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'Payroll Audit Log'
+        verbose_name_plural = 'Payroll Audit Logs'
+
+    def __str__(self):
+        return f'{self.action} @ {self.timestamp:%Y-%m-%d %H:%M}'

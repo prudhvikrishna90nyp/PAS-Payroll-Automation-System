@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Payroll Runs{% endblock %}
+{% block page_heading %}Payroll Runs{% endblock %}
+{% block page_subtitle %}Draft and versioned company payroll processing runs{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Runs</h2>
+        <p class="text-muted mb-0">Create Draft runs for open periods. Calculation comes in Sprint 8.2.</p>
+    </div>
+    <a href="{% url 'payroll:run_add' %}" class="btn btn-primary">Create Run</a>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Company</label>
+                <select name="company" class="form-select">
+                    <option value="">All</option>
+                    {% for company in companies %}
+                        <option value="{{ company.pk }}" {% if company_filter == company.pk|stringformat:"s" %}selected{% endif %}>{{ company.company_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Period</label>
+                <select name="period" class="form-select">
+                    <option value="">All</option>
+                    {% for period in periods %}
+                        <option value="{{ period.pk }}" {% if period_filter == period.pk|stringformat:"s" %}selected{% endif %}>{{ period }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-outline-primary w-100" type="submit">Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Company</th>
+                    <th>Period</th>
+                    <th>Run #</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                <tr>
+                    <td>{{ run.company.company_name }}</td>
+                    <td>{{ run.period.month|stringformat:"02d" }}/{{ run.period.year }}</td>
+                    <td><a href="{% url 'payroll:run_detail' run.pk %}">#{{ run.run_number }}</a></td>
+                    <td>{{ run.get_status_display }}</td>
+                    <td>{{ run.created_at }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-muted">No payroll runs found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

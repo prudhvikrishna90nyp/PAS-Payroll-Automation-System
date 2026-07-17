@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Period {{ period.month|stringformat:"02d" }}/{{ period.year }}{% endblock %}
+{% block page_heading %}{{ period.company.company_name }} — {{ period.month|stringformat:"02d" }}/{{ period.year }}{% endblock %}
+{% block page_subtitle %}{{ period.start_date }} – {{ period.end_date }} · {{ period.get_status_display }}{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+
+<div class="d-flex flex-wrap gap-2 mb-4">
+    {% if period.is_open %}
+    <form method="post" action="{% url 'payroll:period_close' period.pk %}">{% csrf_token %}
+        <button type="submit" class="btn btn-warning">Close Period</button>
+    </form>
+    <a href="{% url 'payroll:run_add' %}?period={{ period.pk }}" class="btn btn-primary">Create Draft Run</a>
+    {% else %}
+    <form method="post" action="{% url 'payroll:period_open' period.pk %}">{% csrf_token %}
+        <button type="submit" class="btn btn-outline-success">Re-open Period</button>
+    </form>
+    {% endif %}
+    <a href="{% url 'payroll:period_list' %}" class="btn btn-outline-secondary">Back to list</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header">Runs</div>
+    <div class="card-body table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Run #</th>
+                    <th>Status</th>
+                    <th>Created by</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in period.runs.all %}
+                <tr>
+                    <td><a href="{% url 'payroll:run_detail' run.pk %}">#{{ run.run_number }}</a></td>
+                    <td>{{ run.get_status_display }}</td>
+                    <td>{{ run.created_by|default:"—" }}</td>
+                    <td>{{ run.created_at }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-muted">No runs yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
