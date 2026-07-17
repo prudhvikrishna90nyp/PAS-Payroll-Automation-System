@@ -577,6 +577,14 @@ class PayrollRun(models.Model):
         blank=True,
         help_text='PF rule set snapshotted at calculation time (immutable historical rates).',
     )
+    esi_rule_set = models.ForeignKey(
+        'compliance.ESIRuleSet',
+        on_delete=models.PROTECT,
+        related_name='payroll_runs',
+        null=True,
+        blank=True,
+        help_text='ESI rule set snapshotted at calculation time (immutable historical rates).',
+    )
     calculation_errors = models.JSONField(
         default=list,
         blank=True,

@@ -12,6 +12,16 @@ urlpatterns = [
         name='pf_report_export',
     ),
     path(
+        'runs/<int:run_id>/esi-reports/<slug:report_key>/',
+        views.ESIReportExportView.as_view(),
+        name='esi_report_export',
+    ),
+    path(
+        'runs/<int:run_id>/esi-contribution/',
+        views.ESIContributionExportView.as_view(),
+        name='esi_contribution_export',
+    ),
+    path(
         'runs/<int:run_id>/ecr/',
         views.ECRExportView.as_view(),
         name='ecr_export',

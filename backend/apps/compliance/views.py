@@ -1,4 +1,4 @@
-"""Compliance UI — PF registers and ECR export (Sprint 9.1)."""
+"""Compliance UI — PF / ESI registers and exports (Sprint 9.1 / 9.2)."""
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
@@ -8,6 +8,9 @@ from django.urls import reverse
 from django.views import View
 
 from apps.compliance.services.ecr_export import ecr_excel_response, ecr_text_response
+from apps.compliance.services.esi_export import esi_contribution_excel_response
+from apps.compliance.services.esi_reports import ESI_REPORT_EXPORTS
+from apps.compliance.services.esi_rules import seed_default_esi_rule_set
 from apps.compliance.services.pf_rules import seed_default_pf_rule_set
 from apps.compliance.services.reports import REPORT_EXPORTS
 from apps.payroll.models import PayrollRun, PayrollRunStatus
@@ -32,6 +35,7 @@ class ComplianceHubView(ComplianceLoginPermissionMixin, View):
 
     def get(self, request):
         seed_default_pf_rule_set()
+        seed_default_esi_rule_set()
         visible = companies_visible_to_user(request.user)
         runs = (
             PayrollRun.objects
@@ -43,7 +47,7 @@ class ComplianceHubView(ComplianceLoginPermissionMixin, View):
                     PayrollRunStatus.LOCKED,
                 ]
             )
-            .select_related('period', 'company', 'pf_rule_set')
+            .select_related('period', 'company', 'pf_rule_set', 'esi_rule_set')
             .order_by('-created_at')
         )
         if visible is not None:
@@ -55,6 +59,7 @@ class ComplianceHubView(ComplianceLoginPermissionMixin, View):
             {
                 'runs': runs,
                 'report_keys': list(REPORT_EXPORTS.keys()),
+                'esi_report_keys': list(ESI_REPORT_EXPORTS.keys()),
             },
         )
 
@@ -75,6 +80,47 @@ class PFReportExportView(ComplianceLoginPermissionMixin, View):
         if visible is not None and run.company_id not in visible:
             raise PermissionDenied
         return REPORT_EXPORTS[report_key](run)
+
+
+class ESIReportExportView(ComplianceLoginPermissionMixin, View):
+    permission_required = 'compliance.export_esiregister'
+    raise_exception = True
+
+    def get(self, request, run_id, report_key):
+        if report_key not in ESI_REPORT_EXPORTS:
+            messages.error(request, 'Unknown ESI report.')
+            return redirect('compliance:hub')
+        run = get_object_or_404(
+            PayrollRun.objects.select_related('period', 'company'),
+            pk=run_id,
+        )
+        visible = companies_visible_to_user(request.user)
+        if visible is not None and run.company_id not in visible:
+            raise PermissionDenied
+        return ESI_REPORT_EXPORTS[report_key](run)
+
+
+class ESIContributionExportView(ComplianceLoginPermissionMixin, View):
+    permission_required = 'compliance.export_esicontribution'
+    raise_exception = True
+
+    def get(self, request, run_id):
+        run = get_object_or_404(
+            PayrollRun.objects.select_related('period', 'company'),
+            pk=run_id,
+        )
+        visible = companies_visible_to_user(request.user)
+        if visible is not None and run.company_id not in visible:
+            raise PermissionDenied
+        require_ip = request.GET.get('validate', '1') != '0'
+        try:
+            return esi_contribution_excel_response(run, require_ip=require_ip)
+        except ValidationError as exc:
+            messages.error(
+                request,
+                '; '.join(exc.messages) if hasattr(exc, 'messages') else str(exc),
+            )
+            return redirect(reverse('compliance:hub'))
 
 
 class ECRExportView(ComplianceLoginPermissionMixin, View):

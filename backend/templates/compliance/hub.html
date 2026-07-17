@@ -1,17 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}EPF Compliance{% endblock %}
-{% block page_heading %}EPF Compliance{% endblock %}
-{% block page_subtitle %}PF registers and EPFO ECR export for calculated payroll runs{% endblock %}
+{% block title %}Statutory Compliance{% endblock %}
+{% block page_heading %}Statutory Compliance{% endblock %}
+{% block page_subtitle %}EPF / ESI registers and contribution exports for calculated payroll runs{% endblock %}
 
 {% block content %}
 <div class="card shadow-sm mb-3">
     <div class="card-body py-3">
         <div class="d-flex flex-wrap gap-2">
-            <a class="btn btn-sm btn-primary" href="{% url 'compliance:hub' %}">PF Hub</a>
+            <a class="btn btn-sm btn-primary" href="{% url 'compliance:hub' %}">Compliance Hub</a>
             <a class="btn btn-sm btn-outline-dark" href="{% url 'payroll:run_list' %}">Payroll Runs</a>
             <a class="btn btn-sm btn-outline-secondary" href="{% url 'payroll:report_index' %}">Payroll Reports</a>
-            <a class="btn btn-sm btn-outline-secondary" href="/admin/compliance/pfruleset/">PF Rule Sets (Admin)</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/admin/compliance/pfruleset/">PF Rule Sets</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/admin/compliance/esiruleset/">ESI Rule Sets</a>
         </div>
     </div>
 </div>
@@ -27,7 +28,9 @@
                     <th>Run #</th>
                     <th>Status</th>
                     <th>PF Rule</th>
-                    <th>Exports</th>
+                    <th>ESI Rule</th>
+                    <th>EPF Exports</th>
+                    <th>ESI Exports</th>
                 </tr>
             </thead>
             <tbody>
@@ -38,6 +41,7 @@
                     <td><a href="{% url 'payroll:run_detail' run.pk %}">#{{ run.run_number }}</a></td>
                     <td>{{ run.get_status_display }}</td>
                     <td>{{ run.pf_rule_set.code|default:"—" }}</td>
+                    <td>{{ run.esi_rule_set.code|default:"—" }}</td>
                     <td class="small">
                         <a href="{% url 'compliance:pf_report_export' run.pk 'pf_register' %}">PF Register</a>
                         · <a href="{% url 'compliance:pf_report_export' run.pk 'ee_contribution' %}">EE</a>
@@ -48,10 +52,16 @@
                         · <a href="{% url 'compliance:ecr_export' run.pk %}?format=txt">ECR txt</a>
                         · <a href="{% url 'compliance:ecr_export' run.pk %}?format=xlsx">ECR xlsx</a>
                     </td>
+                    <td class="small">
+                        <a href="{% url 'compliance:esi_report_export' run.pk 'esi_register' %}">ESI Register</a>
+                        · <a href="{% url 'compliance:esi_report_export' run.pk 'esi_monthly_summary' %}">Summary</a>
+                        · <a href="{% url 'compliance:esi_report_export' run.pk 'missing_ip' %}">Missing IP</a>
+                        · <a href="{% url 'compliance:esi_contribution_export' run.pk %}">Contribution xlsx</a>
+                    </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="text-muted">No calculated payroll runs available yet.</td>
+                    <td colspan="8" class="text-muted">No calculated payroll runs available yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -62,6 +72,9 @@
 <div class="alert alert-light border mt-3 small">
     <strong>ECR columns:</strong> UAN, Member Name, Gross Wages, EPF Wages, EPS Wages, EDLI Wages,
     EE Share, EPS Contribution, ER EPF Difference, NCP Days, Refund of Advances.
-    Text export is tab-separated (EPFO-style). Use <code>?validate=0</code> to skip UAN checks.
+    Text export is tab-separated (EPFO-style). Use <code>?validate=0</code> to skip UAN / IP checks.
+    <br>
+    <strong>ESI:</strong> Register, monthly summary, and missing IP report reconcile from
+    <code>PayrollESIResult</code> snapshots. Contribution export is separate from calculation.
 </div>
 {% endblock %}

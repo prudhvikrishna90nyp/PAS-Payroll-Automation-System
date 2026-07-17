@@ -9,6 +9,8 @@ GSTIN_REGEX = re.compile(
 TAN_REGEX = re.compile(r'^[A-Z]{4}[0-9]{5}[A-Z]$')
 AADHAAR_REGEX = re.compile(r'^[0-9]{12}$')
 UAN_REGEX = re.compile(r'^[0-9]{12}$')
+# ESIC Insurance Number (IP): commonly 10 digits; allow 9–17 digits for legacy formats.
+ESI_IP_REGEX = re.compile(r'^[0-9]{9,17}$')
 IFSC_REGEX = re.compile(r'^[A-Z]{4}0[A-Z0-9]{6}$')
 MOBILE_REGEX = re.compile(r'^[6-9][0-9]{9}$')
 
@@ -65,6 +67,17 @@ def validate_uan(value):
         raise ValidationError(
             'Enter a valid 12-digit UAN.',
             code='invalid_uan',
+        )
+
+
+def validate_esi_ip(value):
+    if not value:
+        return
+    normalized = re.sub(r'\s+', '', value.strip())
+    if not ESI_IP_REGEX.match(normalized):
+        raise ValidationError(
+            'Enter a valid ESI IP number (9–17 digits).',
+            code='invalid_esi_ip',
         )
 
 

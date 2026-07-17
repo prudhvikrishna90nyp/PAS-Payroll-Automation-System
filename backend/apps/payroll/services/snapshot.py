@@ -1,4 +1,4 @@
-"""Persist payroll result snapshots (Sprint 8.2 / 9.1)."""
+"""Persist payroll result snapshots (Sprint 8.2 / 9.1 / 9.2)."""
 
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ from django.db import transaction
 
 @transaction.atomic
 def snapshot_employee_result(run, calc_result):
-    """Persist ``PayrollResult`` + components + ``PayrollPFResult`` for one employee.
+    """Persist ``PayrollResult`` + components + PF/ESI results for one employee.
 
     Replaces any existing result row for the same run/employee.
     """
-    from apps.compliance.models import PayrollPFResult
+    from apps.compliance.models import PayrollESIResult, PayrollPFResult
     from apps.payroll.models import PayrollResult, PayrollResultComponent
     from apps.payroll.services.locking import assert_run_unlocked_for_mutation
 
@@ -72,11 +72,29 @@ def snapshot_employee_result(run, calc_result):
             ncp_days=pf_calc.ncp_days,
             calculation_detail=pf_calc.to_detail_dict(),
         )
+
+    esi_calc = getattr(calc_result, 'esi_calculation', None)
+    if esi_calc is not None:
+        PayrollESIResult.objects.create(
+            payroll_result=result,
+            rule_set=esi_calc.rule_set,
+            rule_version=esi_calc.rule_version or '',
+            esi_wages=esi_calc.esi_wages,
+            employee_esi=esi_calc.employee_esi,
+            employer_esi=esi_calc.employer_esi,
+            is_eligible=esi_calc.eligible,
+            above_wage_limit=esi_calc.above_wage_limit,
+            continuity_applied=esi_calc.continuity_applied,
+            daily_wage_exemption=esi_calc.daily_wage_exemption,
+            missing_ip_number=esi_calc.missing_ip_number,
+            eligibility_notes=esi_calc.eligibility_notes or '',
+            calculation_detail=esi_calc.to_detail_dict(),
+        )
     return result
 
 
 def clear_run_results(run) -> int:
-    """Delete all results (and cascaded components / PF results) for a run. Returns count."""
+    """Delete all results (and cascaded components / PF / ESI results) for a run. Returns count."""
     from apps.payroll.models import PayrollResult
     from apps.payroll.services.locking import assert_run_unlocked_for_mutation
 
