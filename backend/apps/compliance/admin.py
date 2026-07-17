@@ -4,13 +4,20 @@ from apps.compliance.models import (
     EmployeeESIProfile,
     EmployeePFProfile,
     EmployeePTProfile,
+    EmployeeTaxProfile,
     ESIRuleSet,
+    FinancialYearTaxRule,
+    InvestmentProof,
     PayrollESIResult,
     PayrollPFResult,
     PayrollPTResult,
+    PayrollTDSResult,
     PFRuleSet,
+    PreviousEmployerIncome,
     ProfessionalTaxRuleSet,
     ProfessionalTaxSlab,
+    TaxDeclaration,
+    TaxSlab,
 )
 
 
@@ -18,6 +25,18 @@ class ProfessionalTaxSlabInline(admin.TabularInline):
     model = ProfessionalTaxSlab
     extra = 0
     ordering = ('sequence', 'salary_from')
+
+
+class TaxSlabInline(admin.TabularInline):
+    model = TaxSlab
+    extra = 0
+    ordering = ('sequence', 'income_from')
+
+
+class InvestmentProofInline(admin.TabularInline):
+    model = InvestmentProof
+    extra = 0
+    fields = ('category', 'amount', 'proof_file', 'verified', 'notes')
 
 
 @admin.register(PFRuleSet)
@@ -248,6 +267,137 @@ class PayrollPTResultAdmin(admin.ModelAdmin):
         'pt_wages',
         'tax_amount',
         'exemption_reason',
+        'calculation_snapshot',
+        'created_at',
+    )
+
+
+@admin.register(FinancialYearTaxRule)
+class FinancialYearTaxRuleAdmin(admin.ModelAdmin):
+    list_display = (
+        'code',
+        'financial_year',
+        'tax_regime',
+        'effective_from',
+        'effective_to',
+        'standard_deduction',
+        'rebate_limit',
+        'cess_rate',
+        'is_active',
+    )
+    list_filter = ('is_active', 'tax_regime', 'financial_year')
+    search_fields = ('code', 'name', 'financial_year')
+    ordering = ('-financial_year', 'tax_regime')
+    inlines = [TaxSlabInline]
+
+
+@admin.register(TaxSlab)
+class TaxSlabAdmin(admin.ModelAdmin):
+    list_display = ('rule', 'sequence', 'income_from', 'income_to', 'rate')
+    list_filter = ('rule__financial_year', 'rule__tax_regime')
+    search_fields = ('rule__code',)
+    autocomplete_fields = ('rule',)
+
+
+@admin.register(EmployeeTaxProfile)
+class EmployeeTaxProfileAdmin(admin.ModelAdmin):
+    list_display = (
+        'employee',
+        'default_tax_regime',
+        'pan_number',
+        'tax_residency',
+        'is_tds_applicable',
+        'effective_from',
+    )
+    list_filter = ('default_tax_regime', 'tax_residency', 'is_tds_applicable')
+    search_fields = (
+        'pan_number',
+        'employee__employee_code',
+        'employee__first_name',
+        'employee__last_name',
+    )
+    autocomplete_fields = ('employee',)
+    raw_id_fields = ('employee',)
+
+
+@admin.register(TaxDeclaration)
+class TaxDeclarationAdmin(admin.ModelAdmin):
+    list_display = (
+        'employee',
+        'financial_year',
+        'regime',
+        'status',
+        'section_80c',
+        'housing_loan',
+        'hra',
+        'updated_at',
+    )
+    list_filter = ('status', 'regime', 'financial_year')
+    search_fields = ('employee__employee_code', 'financial_year')
+    autocomplete_fields = ('employee',)
+    inlines = [InvestmentProofInline]
+
+
+@admin.register(InvestmentProof)
+class InvestmentProofAdmin(admin.ModelAdmin):
+    list_display = (
+        'employee',
+        'financial_year',
+        'category',
+        'amount',
+        'verified',
+        'declaration',
+    )
+    list_filter = ('category', 'verified', 'financial_year')
+    search_fields = ('employee__employee_code', 'financial_year')
+    autocomplete_fields = ('employee', 'declaration')
+
+
+@admin.register(PreviousEmployerIncome)
+class PreviousEmployerIncomeAdmin(admin.ModelAdmin):
+    list_display = (
+        'employee',
+        'financial_year',
+        'employer_name',
+        'taxable_income',
+        'tds_deducted',
+    )
+    list_filter = ('financial_year',)
+    search_fields = ('employee__employee_code', 'employer_name')
+    autocomplete_fields = ('employee',)
+
+
+@admin.register(PayrollTDSResult)
+class PayrollTDSResultAdmin(admin.ModelAdmin):
+    list_display = (
+        'payroll_result',
+        'financial_year',
+        'tax_regime',
+        'taxable_salary',
+        'annual_tax',
+        'monthly_tds',
+        'cess',
+        'rebate',
+    )
+    list_filter = ('tax_regime', 'financial_year')
+    search_fields = (
+        'financial_year',
+        'payroll_result__employee__employee_code',
+    )
+    readonly_fields = (
+        'payroll_result',
+        'rule_set',
+        'financial_year',
+        'tax_regime',
+        'taxable_salary',
+        'annual_tax',
+        'monthly_tds',
+        'tax_before_cess',
+        'surcharge',
+        'cess',
+        'rebate',
+        'relief',
+        'previous_tds',
         'calculation_snapshot',
         'created_at',
     )

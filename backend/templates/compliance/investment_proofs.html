@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Investment Proofs{% endblock %}
+{% block page_heading %}Investment Proofs{% endblock %}
+{% block page_subtitle %}Proof documents linked to declarations{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'compliance:hub' %}">← Compliance Hub</a>
+    <a class="btn btn-sm btn-outline-secondary" href="/admin/compliance/investmentproof/">Admin</a>
+</div>
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>FY</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Verified</th>
+                    <th>File</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in proofs %}
+                <tr>
+                    <td>{% if p.employee %}{{ p.employee.employee_code }}{% else %}—{% endif %}</td>
+                    <td>{{ p.financial_year|default:"—" }}</td>
+                    <td>{{ p.get_category_display }}</td>
+                    <td>{{ p.amount }}</td>
+                    <td>{% if p.verified %}Yes{% else %}No{% endif %}</td>
+                    <td>{% if p.proof_file %}<a href="{{ p.proof_file.url }}">Download</a>{% else %}—{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-muted">No investment proofs yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

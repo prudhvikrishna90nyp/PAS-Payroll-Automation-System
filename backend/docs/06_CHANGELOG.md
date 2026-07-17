@@ -6,6 +6,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.9.4] — 2026-07-17
+
+### Added
+- **Sprint 9.4 — TDS Compliance**
+  - `FinancialYearTaxRule` / `TaxSlab` with seeded FY 2024-25 and 2025-26 OLD/NEW regime rates
+  - Employee tax profile, declarations, investment proofs, previous employer income
+  - TDS engine + annual projection; immutable `PayrollTDSResult` snapshots
+  - TDS register / summary / missing-PAN reports; Form 16 preparation data (separate from calc)
+  - Compliance hub pages under `/compliance/` for tax masters and Form 16 preview
+
+### Notes
+- Statutory stack complete through 9.4 (EPF + ESI + PT + TDS). **v1.0 RC stabilization** is next.
+
+---
+
 ## [Unreleased]
 
 ### Added

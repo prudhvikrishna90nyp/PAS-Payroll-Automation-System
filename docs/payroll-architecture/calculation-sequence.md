@@ -44,7 +44,7 @@ sequenceDiagram
 | `payable_days` (no summary) | `max(0, eligible_days − lop_days)` (`lop_days` defaults to 0) |
 | `proration_factor` | `payable_days / calendar_days` |
 
-Earnings and structure deductions are evaluated at full monthly rates, then multiplied by `proration_factor`. **EPF** is calculated via `apps.compliance` (Sprint 9.1) from PF-applicable earnings, ceiling, and the effective `PFRuleSet`. **ESI** is calculated via `apps.compliance` (Sprint 9.2) from ESI-applicable earnings, eligibility wage limit, contribution-period continuity, and the effective `ESIRuleSet`. **Professional Tax** is calculated via `apps.compliance` (Sprint 9.3) from employee work-state (`EmployeePTProfile`), effective state rule set + DB slabs (AP seeded; February special month). TDS remains a zero stub (Sprint 9.4).
+Earnings and structure deductions are evaluated at full monthly rates, then multiplied by `proration_factor`. **EPF** is calculated via `apps.compliance` (Sprint 9.1) from PF-applicable earnings, ceiling, and the effective `PFRuleSet`. **ESI** is calculated via `apps.compliance` (Sprint 9.2) from ESI-applicable earnings, eligibility wage limit, contribution-period continuity, and the effective `ESIRuleSet`. **Professional Tax** is calculated via `apps.compliance` (Sprint 9.3) from employee work-state (`EmployeePTProfile`), effective state rule set + DB slabs (AP seeded; February special month). **TDS** is calculated via `apps.compliance` (Sprint 9.4) from employee tax profile / declaration regime, FY tax rules + DB slabs, annual income projection (YTD + remaining months + previous employer), rebate/surcharge/cess, and remaining liability ÷ months left.
 
 ### Run status after calculation
 
@@ -96,7 +96,7 @@ sequenceDiagram
 | `salary_calculator.py` | Line specs → dependency order → fixed / % / formula → rounding | **Implemented (v0.7)** |
 | `calculator.py` / `payroll_engine.calculate_run` | Run pipeline, proration, snapshots, partial errors | **Implemented (v0.8.2 / Sprint 8.2)** |
 | `attendance_loader.py` / `salary_loader.py` | Period attendance + effective assignment | **Implemented (Sprint 8.2)** |
-| `statutory.py` + `apps.compliance` | EPF + ESI + PT engines; TDS stub | **EPF Implemented (Sprint 9.1)**; **ESI Implemented (Sprint 9.2)**; **PT Implemented (Sprint 9.3)**; TDS **Planned (9.4)** |
+| `statutory.py` + `apps.compliance` | EPF + ESI + PT + TDS engines | **EPF Implemented (Sprint 9.1)**; **ESI Implemented (Sprint 9.2)**; **PT Implemented (Sprint 9.3)**; **TDS Implemented (Sprint 9.4)** |
 | `payslip_generator.py` | Legacy payslip path | **Implemented (v0.7)** |
 | `payslip_data.py` | Read-only payslip preview dataset from `PayrollResult` snapshots | **Implemented (Sprint 8.4)** |
 | `report_queries.py` | Visibility-aware snapshot report queries, totals, and summaries | **Implemented (Sprint 8.4)** |
@@ -106,7 +106,7 @@ sequenceDiagram
 ### Net pay (run engine)
 
 \[
-\text{net} = \sum \text{prorated earnings} - \sum \text{prorated structure deductions} - \text{EE PF} - \text{VPF} - \text{EE ESI} - \text{PT} - 0_{\text{TDS stub}}
+\text{net} = \sum \text{prorated earnings} - \sum \text{prorated structure deductions} - \text{EE PF} - \text{VPF} - \text{EE ESI} - \text{PT} - \text{monthly TDS}
 \]
 
 ### Related

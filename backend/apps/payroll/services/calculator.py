@@ -22,8 +22,8 @@ Numerator ``payable_days``:
 
 Earnings (and structure deductions) are evaluated at full monthly rates via
 the structure engine, then multiplied by ``proration_factor``. Statutory EPF,
-ESI, and Professional Tax are calculated via ``apps.compliance`` (Sprints
-9.1–9.3); TDS remains a stub (Sprint 9.4).
+ESI, Professional Tax, and TDS are calculated via ``apps.compliance``
+(Sprints 9.1–9.4).
 """
 
 from __future__ import annotations
@@ -73,6 +73,7 @@ class EmployeeCalcResult:
     pf_calculation: object | None = None
     esi_calculation: object | None = None
     pt_calculation: object | None = None
+    tds_calculation: object | None = None
 
 
 def eligible_employees_for_run(run):
@@ -151,6 +152,8 @@ def calculate_employee(
     pf_rule_set=None,
     esi_rule_set=None,
     pt_rule_set=None,
+    tds_rule_set=None,
+    exclude_run_id: int | None = None,
 ) -> EmployeeCalcResult:
     """Calculate one employee's payroll snapshot inputs (not persisted)."""
     if assignment is None:
@@ -172,7 +175,7 @@ def calculate_employee(
         raise InvalidFormulaError(msg, employee=employee) from exc
 
     earning_rows = build_earning_rows(full.lines, factor)
-    # Structure-defined EE_PF / EE_ESI / PT lines are superseded by statutory engine rows.
+    # Structure-defined EE_PF / EE_ESI / PT / TDS lines are superseded by statutory engine rows.
     deduction_rows = [
         row for row in build_deduction_rows(full.lines, factor)
         if str(row.get('component_code', '')).upper() not in {
@@ -196,7 +199,7 @@ def calculate_employee(
         lop_days = attendance.lop_days
         overtime_hours = ZERO
 
-    statutory_rows, pf_calc, esi_calc, pt_calc = statutory_component_rows(
+    statutory_rows, pf_calc, esi_calc, pt_calc, tds_calc = statutory_component_rows(
         employee=employee,
         period=period,
         earning_rows=earning_rows,
@@ -204,9 +207,11 @@ def calculate_employee(
         rule_set=pf_rule_set,
         esi_rule_set=esi_rule_set,
         pt_rule_set=pt_rule_set,
+        tds_rule_set=tds_rule_set,
         ncp_days=lop_days,
         payable_days=payable_days,
         calendar_days=calendar_days,
+        exclude_run_id=exclude_run_id,
     )
 
     structure_deductions = sum((r['amount'] for r in deduction_rows), ZERO).quantize(TWO_PLACES)
@@ -247,6 +252,7 @@ def calculate_employee(
         pf_calculation=pf_calc,
         esi_calculation=esi_calc,
         pt_calculation=pt_calc,
+        tds_calculation=tds_calc,
         calculation_detail={
             'calendar_days': str(calendar_days),
             'eligible_days': str(eligible_days),
@@ -254,10 +260,11 @@ def calculate_employee(
             'proration_factor': str(factor),
             'attendance_source': attendance.source,
             'gross_salary_full': str(assignment.gross_salary),
-            'statutory': 'epf_esi_pt_sprint_9_3',
+            'statutory': 'epf_esi_pt_tds_sprint_9_4',
             'pf': pf_calc.to_detail_dict() if pf_calc else {},
             'esi': esi_calc.to_detail_dict() if esi_calc else {},
             'pt': pt_calc.to_snapshot_dict() if pt_calc else {},
+            'tds': tds_calc.to_snapshot_dict() if tds_calc else {},
         },
     )
 
@@ -271,6 +278,8 @@ def safe_calculate_employee(
     pf_rule_set=None,
     esi_rule_set=None,
     pt_rule_set=None,
+    tds_rule_set=None,
+    exclude_run_id: int | None = None,
 ) -> EmployeeCalcResult:
     """Wrapper that normalizes known failures to EmployeeCalculationError."""
     try:
@@ -282,6 +291,8 @@ def safe_calculate_employee(
             pf_rule_set=pf_rule_set,
             esi_rule_set=esi_rule_set,
             pt_rule_set=pt_rule_set,
+            tds_rule_set=tds_rule_set,
+            exclude_run_id=exclude_run_id,
         )
     except EmployeeCalculationError:
         raise
