@@ -6,8 +6,9 @@
 
 {% block content %}
 <div class="d-flex flex-wrap gap-2 mb-4">
-    <a class="btn btn-primary btn-sm" href="{% url 'payslip_pdf' payslip.pk %}">Download PDF</a>
-    <a class="btn btn-outline-secondary btn-sm" href="{% url 'payslip_list' %}">Back to list</a>
+    {% include "payroll/_nav.html" %}
+    <a class="btn btn-primary btn-sm" href="{% url 'payroll:payslip_pdf' payslip.pk %}">Download PDF</a>
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'payroll:payslip_list' %}">Back to list</a>
 </div>
 
 <div class="row g-4">

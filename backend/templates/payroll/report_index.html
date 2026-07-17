@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Payroll Reports{% endblock %}
+{% block page_heading %}Payroll Reports{% endblock %}
+{% block page_subtitle %}Structure, component, salary and CTC registers (Excel){% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" id="reportFilter" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Company filter</label>
+                <select name="company" class="form-select" id="companyFilter">
+                    <option value="">All companies</option>
+                    {% for company in companies %}
+                        <option value="{{ company.pk }}">{{ company.company_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="list-group shadow-sm">
+    {% for key, label in reports %}
+    <a class="list-group-item list-group-item-action report-link" href="{% url 'payroll:report_download' key %}" data-base="{% url 'payroll:report_download' key %}">
+        {{ label }}
+    </a>
+    {% endfor %}
+</div>
+
+<script>
+(function () {
+    const select = document.getElementById('companyFilter');
+    document.querySelectorAll('.report-link').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            const company = select.value;
+            if (company) {
+                e.preventDefault();
+                window.location = link.dataset.base + '?company=' + encodeURIComponent(company);
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

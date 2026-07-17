@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Salary Assignment{% endblock %}
+{% block page_heading %}{{ assignment.employee.employee_code }} — {{ assignment.employee.full_name }}{% endblock %}
+{% block page_subtitle %}{{ assignment.salary_structure.name }} from {{ assignment.effective_from }}{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+<div class="d-flex gap-2 mb-4">
+    <a href="{% url 'payroll:assignment_edit' assignment.pk %}" class="btn btn-primary btn-sm">Edit</a>
+    <a href="{% url 'payroll:assignment_add' %}?employee={{ assignment.employee_id }}" class="btn btn-outline-primary btn-sm">New revision</a>
+    <form method="post" action="{% url 'payroll:assignment_archive' assignment.pk %}">{% csrf_token %}<button class="btn btn-outline-danger btn-sm" type="submit">Archive</button></form>
+    <a href="{% url 'payroll:assignment_list' %}" class="btn btn-outline-secondary btn-sm">Back</a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">Gross</div><div class="fs-5">₹{{ assignment.gross_salary }}</div></div></div></div>
+    <div class="col-md-3"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">CTC</div><div class="fs-5">₹{{ assignment.ctc }}</div></div></div></div>
+    <div class="col-md-3"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">Effective to</div><div class="fs-5">{% if assignment.effective_to %}{{ assignment.effective_to }}{% else %}Current{% endif %}</div></div></div></div>
+    <div class="col-md-3"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">Company</div><div class="fs-6">{{ assignment.employee.company.company_name }}</div></div></div></div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header">Component breakdown</div>
+    <div class="card-body">
+        {% if breakdown_error %}
+            <div class="text-danger">{{ breakdown_error }}</div>
+        {% elif breakdown %}
+            <table class="table table-sm mb-0">
+                <thead class="table-light"><tr><th>Component</th><th>Type</th><th>Amount</th></tr></thead>
+                <tbody>
+                    {% for row in breakdown.lines %}
+                    <tr>
+                        <td>{{ row.component_code }} — {{ row.component_name }}</td>
+                        <td>{{ row.component_type }}</td>
+                        <td>₹{{ row.amount }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

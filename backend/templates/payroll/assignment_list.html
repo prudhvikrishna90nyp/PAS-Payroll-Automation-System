@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Salary Assignments{% endblock %}
+{% block page_heading %}Employee Salary Assignments{% endblock %}
+{% block page_subtitle %}Structure assignment with revision history{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Assignments</h2>
+        <p class="text-muted mb-0">Revisions create a new row; previous assignment is soft-ended.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'payroll:report_download' 'employee_salary_register' %}{% if querystring %}?{{ querystring }}{% endif %}" class="btn btn-outline-secondary">Export Excel</a>
+        <a href="{% url 'payroll:assignment_add' %}" class="btn btn-primary">Add Assignment</a>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Search</label>
+                <input type="text" name="q" value="{{ search_query }}" class="form-control" placeholder="Employee or structure">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Company</label>
+                <select name="company" class="form-select">
+                    <option value="">All</option>
+                    {% for company in companies %}
+                        <option value="{{ company.pk }}" {% if company_filter == company.pk|stringformat:"s" %}selected{% endif %}>{{ company.company_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Structure</label>
+                <select name="structure" class="form-select">
+                    <option value="">All</option>
+                    {% for structure in structures %}
+                        <option value="{{ structure.pk }}" {% if structure_filter == structure.pk|stringformat:"s" %}selected{% endif %}>{{ structure.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Current</label>
+                <select name="current" class="form-select">
+                    <option value="">All</option>
+                    <option value="1" {% if current_filter == '1' %}selected{% endif %}>Current only</option>
+                    <option value="0" {% if current_filter == '0' %}selected{% endif %}>Historical</option>
+                </select>
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button class="btn btn-outline-primary w-100" type="submit">Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Employee</th>
+                    <th>Structure</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Gross</th>
+                    <th>CTC</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for assignment in assignments %}
+                <tr>
+                    <td><a href="{% url 'payroll:assignment_detail' assignment.pk %}">{{ assignment.employee.employee_code }} — {{ assignment.employee.full_name }}</a></td>
+                    <td>{{ assignment.salary_structure.name }}</td>
+                    <td>{{ assignment.effective_from }}</td>
+                    <td>{% if assignment.effective_to %}{{ assignment.effective_to }}{% else %}<span class="badge text-bg-success">Current</span>{% endif %}</td>
+                    <td>₹{{ assignment.gross_salary }}</td>
+                    <td>₹{{ assignment.ctc }}</td>
+                    <td class="text-end"><a href="{% url 'payroll:assignment_edit' assignment.pk %}" class="btn btn-sm btn-link">Edit</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-muted">No assignments found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% if page_obj %}{% include "includes/_pagination.html" %}{% endif %}
+{% endblock %}

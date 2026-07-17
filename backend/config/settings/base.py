@@ -35,7 +35,7 @@ INSTALLED_APPS = [
     'apps.employee.apps.EmployeeConfig',
     'apps.attendance.apps.AttendanceConfig',
     'apps.leave',
-    'apps.payroll',
+    'apps.payroll.apps.PayrollConfig',
     'apps.reports',
     'rest_framework',
     'apps.compliance',

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit Component{% else %}Add Component{% endif %}{% endblock %}
+{% block page_heading %}{% if object %}Edit Component{% else %}Add Component{% endif %}{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">Component details</div>
+        <div class="card-body row g-3">
+            <div class="col-md-4"><label class="form-label">Company</label>{{ form.company }}{% for e in form.company.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+            <div class="col-md-4"><label class="form-label">Code</label>{{ form.component_code }}{% for e in form.component_code.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+            <div class="col-md-4"><label class="form-label">Name</label>{{ form.component_name }}{% for e in form.component_name.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+            <div class="col-md-4"><label class="form-label">Type</label>{{ form.component_type }}</div>
+            <div class="col-md-4"><label class="form-label">Calculation</label>{{ form.calculation_type }}</div>
+            <div class="col-md-4"><label class="form-label">Rounding</label>{{ form.rounding_rule }}</div>
+            <div class="col-md-8"><label class="form-label">Formula</label>{{ form.formula }}<div class="form-text">Example: Gross * 40 / 100 or Basic * 40 / 100</div></div>
+            <div class="col-md-4"><label class="form-label">Display order</label>{{ form.display_order }}</div>
+            <div class="col-md-2 form-check mt-4">{{ form.taxable }} <label class="form-check-label">Taxable</label></div>
+            <div class="col-md-2 form-check mt-4">{{ form.pf_applicable }} <label class="form-check-label">PF</label></div>
+            <div class="col-md-2 form-check mt-4">{{ form.esi_applicable }} <label class="form-check-label">ESI</label></div>
+            <div class="col-md-2 form-check mt-4">{{ form.include_in_ctc }} <label class="form-check-label">In CTC</label></div>
+            <div class="col-md-2 form-check mt-4">{{ form.include_in_gross }} <label class="form-check-label">In Gross</label></div>
+            <div class="col-md-2 form-check mt-4">{{ form.is_active }} <label class="form-check-label">Active</label></div>
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% url 'payroll:component_list' %}" class="btn btn-outline-secondary">Cancel</a>
+</form>
+{% endblock %}

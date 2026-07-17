@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Salary Structures{% endblock %}
+{% block page_heading %}Salary Structures{% endblock %}
+{% block page_subtitle %}Office Staff, Factory and other company structures{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Structures</h2>
+        <p class="text-muted mb-0">Component-based salary structures with formula overrides.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'payroll:report_download' 'structure_register' %}{% if querystring %}?{{ querystring }}{% endif %}" class="btn btn-outline-secondary">Export Excel</a>
+        <a href="{% url 'payroll:structure_add' %}" class="btn btn-primary">Add Structure</a>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <input type="text" name="q" value="{{ search_query }}" class="form-control" placeholder="Code or name">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Company</label>
+                <select name="company" class="form-select">
+                    <option value="">All</option>
+                    {% for company in companies %}
+                        <option value="{{ company.pk }}" {% if company_filter == company.pk|stringformat:"s" %}selected{% endif %}>{{ company.company_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All</option>
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-outline-primary w-100" type="submit">Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Company</th>
+                    <th>Lines</th>
+                    <th>Active</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for structure in structures %}
+                <tr>
+                    <td><a href="{% url 'payroll:structure_detail' structure.pk %}">{{ structure.code }}</a></td>
+                    <td>{{ structure.name }}</td>
+                    <td>{{ structure.company.company_name }}</td>
+                    <td>{{ structure.lines.count }}</td>
+                    <td>{{ structure.is_active|yesno:"Yes,No" }}</td>
+                    <td class="text-end"><a href="{% url 'payroll:structure_edit' structure.pk %}" class="btn btn-sm btn-link">Edit</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-muted">No structures found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% if page_obj %}{% include "includes/_pagination.html" %}{% endif %}
+{% endblock %}

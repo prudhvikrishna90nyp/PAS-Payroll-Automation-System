@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Salary Components{% endblock %}
+{% block page_heading %}Salary Components{% endblock %}
+{% block page_subtitle %}Earning, deduction and employer contribution masters{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Components</h2>
+        <p class="text-muted mb-0">Company-scoped salary component catalogue.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'payroll:component_seed' %}" class="btn btn-outline-secondary">Seed Standards</a>
+        <a href="{% url 'payroll:report_download' 'component_register' %}{% if querystring %}?{{ querystring }}{% endif %}" class="btn btn-outline-secondary">Export Excel</a>
+        <a href="{% url 'payroll:component_add' %}" class="btn btn-primary">Add Component</a>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Search</label>
+                <input type="text" name="q" value="{{ search_query }}" class="form-control" placeholder="Code, name, formula">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Company</label>
+                <select name="company" class="form-select">
+                    <option value="">All</option>
+                    {% for company in companies %}
+                        <option value="{{ company.pk }}" {% if company_filter == company.pk|stringformat:"s" %}selected{% endif %}>{{ company.company_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Type</label>
+                <select name="component_type" class="form-select">
+                    <option value="">All</option>
+                    {% for value, label in component_types %}
+                        <option value="{{ value }}" {% if component_type_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Calc</label>
+                <select name="calculation_type" class="form-select">
+                    <option value="">All</option>
+                    {% for value, label in calculation_types %}
+                        <option value="{{ value }}" {% if calculation_type_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All</option>
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+                </select>
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button class="btn btn-outline-primary w-100" type="submit">Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Company</th>
+                    <th>Type</th>
+                    <th>Calc</th>
+                    <th>Order</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for component in components %}
+                <tr>
+                    <td><a href="{% url 'payroll:component_detail' component.pk %}">{{ component.component_code }}</a></td>
+                    <td>{{ component.component_name }}</td>
+                    <td>{{ component.company.company_name }}</td>
+                    <td>{{ component.get_component_type_display }}</td>
+                    <td>{{ component.get_calculation_type_display }}</td>
+                    <td>{{ component.display_order }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'payroll:component_edit' component.pk %}" class="btn btn-sm btn-link">Edit</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-muted">No components found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% if page_obj %}{% include "includes/_pagination.html" %}{% endif %}
+{% endblock %}

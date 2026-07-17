@@ -46,6 +46,13 @@ class DocumentType(models.TextChoices):
 
 
 class SalaryStructure(SoftDeleteModel):
+    """
+    Legacy simple salary template (basic / HRA% / transport).
+
+    Sprint 7 component-based masters live in apps.payroll
+    (SalaryComponent, SalaryStructure, EmployeeSalaryAssignment).
+    """
+
     company = models.ForeignKey(
         Company,
         on_delete=models.CASCADE,
