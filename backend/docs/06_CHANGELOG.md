@@ -6,6 +6,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [1.0.0] — 2026-07-17
+
+### Added
+- First production (GA) release — tag `v1.0.0`
+- Production release notes: `docs/RELEASE_NOTES_v1.0.0.md`
+
+### Notes
+- Promoted from `v1.0.0-rc1` with no additional release-blocking code fixes
+- GA validation: `manage.py check`, `makemigrations --check`, full test suite green
+- Deployment / backup docs remain authoritative under `docs/DEPLOYMENT_CHECKLIST.md` and `docs/BACKUP_AND_RESTORE.md`
+- Post-1.0 backlog: React SPA/API, bank advice/NEFT, automated backups, volume tuning — see `07_ROADMAP.md`
+
+---
+
 ## [1.0.0-rc1] — 2026-07-17
 
 ### Fixed
