@@ -1,15 +1,18 @@
 from datetime import date, timedelta
 from decimal import Decimal
+from io import BytesIO
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import Sum
 from django.test import TestCase
 from django.urls import reverse
+from openpyxl import load_workbook
 
 from apps.clients.models import Client
-from apps.company.models import Company
+from apps.company.models import Branch, Company, Department
 from apps.employee.models import Employee
 
 from .models import (
@@ -54,6 +57,17 @@ from .services.payroll_engine import (
     open_period,
 )
 from .services.payslip_generator import calculate_payslip_amounts, generate_payslip
+from .services.payslip_data import build_payslip_dataset
+from .services.export_service import export_payroll_register
+from .services.report_queries import (
+    ReportFilters,
+    aggregate_result_totals,
+    branch_summary,
+    companies_visible_to_user,
+    department_summary,
+    reconcile_earnings_deductions,
+    results_queryset,
+)
 from .services.salary_calculator import apply_rounding, calculate_structure_components
 from .services.validation import (
     SalaryValidationError,
@@ -102,6 +116,7 @@ class PayrollTestMixin:
             'view_payrollrun',
             'add_payrollrun',
             'change_payrollrun',
+            'view_payrollresult',
         ):
             try:
                 self.user.user_permissions.add(_perm(codename))
@@ -1169,3 +1184,223 @@ class PayrollApprovalLockingTests(PayrollTestMixin, TestCase):
         self.client.force_login(self.viewer)
         response = self.client.post(reverse('payroll:run_review', args=[self.run.pk]))
         self.assertEqual(response.status_code, 403)
+
+
+class PayrollReportsPayslipSprint84Tests(PayrollTestMixin, TestCase):
+    """Sprint 8.4 snapshot reporting, export, and payslip coverage."""
+
+    def setUp(self):
+        super().setUp()
+        self.branch = Branch.objects.create(
+            company=self.company, branch_name='HQ', code='HQ',
+        )
+        self.department = Department.objects.create(
+            company=self.company, name='Ops', code='OPS',
+        )
+        self.employee.branch = self.branch
+        self.employee.department = self.department
+        self.employee.save(update_fields=['branch', 'department'])
+        for codename in ('review_payrollrun', 'approve_payrollrun', 'lock_payrollrun'):
+            self.user.user_permissions.add(_perm(codename))
+
+        self.period = create_period(
+            company=self.company, month=8, year=2026,
+            start_date=date(2026, 8, 1), end_date=date(2026, 8, 31),
+            user=self.user,
+        )
+        self.run = create_run(period=self.period, user=self.user)
+        seed_standard_components(self.company)
+        self.structure = SalaryStructure.objects.create(
+            company=self.company, code='RPT84', name='Report Structure',
+        )
+        basic = SalaryComponent.objects.get(
+            company=self.company, component_code='BASIC',
+        )
+        SalaryStructureLine.objects.create(
+            structure=self.structure, component=basic,
+            calculation_type=CalculationType.PERCENTAGE,
+            percent=Decimal('100.0000'), display_order=10,
+        )
+        self.assignment = EmployeeSalaryAssignment.objects.create(
+            employee=self.employee, salary_structure=self.structure,
+            effective_from=date(2026, 1, 1), gross_salary=Decimal('30000.00'),
+            ctc=Decimal('360000.00'), created_by=self.user, updated_by=self.user,
+        )
+
+    def _filters(self, visibility='all', **kwargs):
+        return ReportFilters(
+            company_ids=kwargs.get('company_ids', ()),
+            period_ids=kwargs.get('period_ids', ()),
+            run_ids=kwargs.get('run_ids', ()),
+            branch_ids=kwargs.get('branch_ids', ()),
+            department_ids=kwargs.get('department_ids', ()),
+            visibility=visibility, user=kwargs.get('user', self.user),
+        )
+
+    def _calculate(self):
+        calculate_run(self.run, user=self.user)
+        self.run.refresh_from_db()
+        return self.run
+
+    def _locked_run_with_results(self):
+        if self.run.status == PayrollRunStatus.DRAFT:
+            self._calculate()
+        mark_reviewed(self.run, user=self.user)
+        approve_run(self.run, user=self.user)
+        lock_run(self.run, user=self.user)
+        self.run.refresh_from_db()
+        return self.run
+
+    def test_register_totals_match_db(self):
+        self._locked_run_with_results()
+        totals = aggregate_result_totals(results_queryset(self._filters('final')))
+        expected = PayrollResult.objects.filter(run=self.run).aggregate(
+            gross=Sum('gross'),
+            total_earnings=Sum('total_earnings'),
+            total_deductions=Sum('total_deductions'),
+            net_salary=Sum('net_salary'),
+        )
+        self.assertEqual(totals['employee_count'], 1)
+        for name, value in expected.items():
+            self.assertEqual(totals[name], value)
+
+    def test_earnings_deductions_reconciliation(self):
+        self._locked_run_with_results()
+        reconciliation = reconcile_earnings_deductions(self._filters('final'))
+        self.assertEqual(reconciliation['earnings_difference'], Decimal('0.00'))
+        self.assertEqual(reconciliation['deductions_difference'], Decimal('0.00'))
+
+    def test_branch_department_filters(self):
+        self._locked_run_with_results()
+        branch_rows, _ = branch_summary(
+            self._filters('final', branch_ids=(self.branch.pk,))
+        )
+        department_rows, _ = department_summary(
+            self._filters('final', department_ids=(self.department.pk,))
+        )
+        self.assertEqual([row.name for row in branch_rows], ['HQ'])
+        self.assertEqual([row.name for row in department_rows], ['Ops'])
+        self.assertEqual(results_queryset(
+            self._filters('final', branch_ids=(self.branch.pk,))
+        ).count(), 1)
+
+    def test_historical_snapshot_after_master_change(self):
+        self._locked_run_with_results()
+        result = PayrollResult.objects.get(run=self.run, employee_id=self.employee.pk)
+        original_gross = result.gross
+        self.assignment.gross_salary = Decimal('90000.00')
+        self.assignment.save(update_fields=['gross_salary'])
+        dataset = build_payslip_dataset(result)
+        self.assertEqual(dataset['gross'], original_gross)
+        self.assertEqual(
+            aggregate_result_totals(results_queryset(self._filters('final')))['gross'],
+            original_gross,
+        )
+
+    def test_archived_employee_in_historical_reports(self):
+        self._locked_run_with_results()
+        result = PayrollResult.objects.get(run=self.run, employee_id=self.employee.pk)
+        self.employee.soft_delete()
+        self.assertEqual(results_queryset(self._filters('final')).count(), 1)
+        self.assertTrue(build_payslip_dataset(result)['employee']['is_archived'])
+        self.assertEqual(department_summary(self._filters('final'))[0][0].name, 'Ops')
+
+    def test_draft_vs_locked_visibility(self):
+        self._calculate()
+        self.assertEqual(results_queryset(self._filters('final')).count(), 0)
+        self.assertEqual(results_queryset(self._filters('draft')).count(), 1)
+        self._locked_run_with_results()
+        self.assertEqual(results_queryset(self._filters('final')).count(), 1)
+
+    def test_permission_company_filtering(self):
+        self._locked_run_with_results()
+        unprivileged = get_user_model().objects.create_user(
+            username='no-report-access', password='TestPassword123!',
+        )
+        self.assertEqual(companies_visible_to_user(unprivileged), [])
+        self.assertEqual(results_queryset(self._filters('all', user=unprivileged)).count(), 0)
+
+        other_company = Company.objects.create(
+            client=self.client_record, company_name='Other Payroll Co',
+        )
+        other_employee = Employee.objects.create(
+            company=other_company, employee_code='EMP8402', first_name='Other',
+            date_of_joining=date(2026, 1, 1), basic_salary=Decimal('1.00'),
+            auto_generate_code=False,
+        )
+        other_period = create_period(
+            company=other_company, month=8, year=2026,
+            start_date=date(2026, 8, 1), end_date=date(2026, 8, 31),
+            user=self.user,
+        )
+        other_run = create_run(period=other_period, user=self.user)
+        PayrollResult.objects.create(run=other_run, employee=other_employee)
+        filtered = results_queryset(
+            self._filters('all', company_ids=(self.company.pk,))
+        )
+        self.assertEqual(filtered.count(), 1)
+        self.assertTrue(all(result.run.company_id == self.company.pk for result in filtered))
+
+    def test_excel_export_content_and_totals(self):
+        self._locked_run_with_results()
+        response = export_payroll_register(self._filters('final'))
+        self.assertEqual(
+            response['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        sheet = load_workbook(BytesIO(response.content), data_only=True).active
+        self.assertEqual(sheet.max_column, 14)
+        totals = aggregate_result_totals(results_queryset(self._filters('final')))
+        self.assertEqual(sheet.cell(sheet.max_row, 1).value, 'Totals')
+        self.assertEqual(sheet.cell(sheet.max_row, 11).value, totals['gross'])
+        self.assertEqual(sheet.cell(sheet.max_row, 14).value, totals['net_salary'])
+
+    def test_payslip_dataset_ordering_rounding_and_draft_watermark(self):
+        self._calculate()
+        result = PayrollResult.objects.get(run=self.run, employee_id=self.employee.pk)
+        draft = build_payslip_dataset(result)
+        self.assertEqual(draft['watermark'], 'DRAFT')
+        self.assertEqual(
+            [line['code'] for line in draft['earnings']],
+            sorted(line['code'] for line in draft['earnings']),
+        )
+        self.assertTrue(all(
+            line['amount'].as_tuple().exponent == -2 for line in draft['earnings']
+        ))
+        self._locked_run_with_results()
+        result.refresh_from_db()
+        self.assertIsNone(build_payslip_dataset(result)['watermark'])
+
+    def test_empty_run_report(self):
+        filters = self._filters('all', run_ids=(self.run.pk,))
+        totals = aggregate_result_totals(results_queryset(filters))
+        self.assertEqual(results_queryset(filters).count(), 0)
+        self.assertEqual(totals['employee_count'], 0)
+        self.assertEqual(totals['net_salary'], Decimal('0.00'))
+
+    def test_engine_report_page_and_export_views(self):
+        self._calculate()
+        self.client.force_login(self.user)
+        page = self.client.get(
+            reverse('payroll:engine_report', args=['payroll-register']),
+            {'visibility': 'all'},
+        )
+        export = self.client.get(
+            reverse('payroll:engine_report_export', args=['payroll-register']),
+            {'visibility': 'all'},
+        )
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(export.status_code, 200)
+        self.assertEqual(
+            export['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+
+    def test_payslip_preview_view(self):
+        self._calculate()
+        result = PayrollResult.objects.get(run=self.run, employee_id=self.employee.pk)
+        self.client.force_login(self.user)
+        response = self.client.get(reverse(
+            'payroll:payslip_preview', args=[self.run.pk, result.pk],
+        ))
+        self.assertEqual(response.status_code, 200)

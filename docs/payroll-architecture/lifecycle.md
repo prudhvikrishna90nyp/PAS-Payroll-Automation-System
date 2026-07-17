@@ -31,7 +31,7 @@ flowchart LR
   end
 
   subgraph output ["Output"]
-    O1[Payslip draft] --> O2[PDF / Excel]
+    O1[Payslip preview + reports] --> O2[PDF planned / Excel]
     O3["Bank advice (planned)"]
   end
 
@@ -59,9 +59,10 @@ flowchart LR
 | 8. Bank advice | Employee bank fields exist; dedicated NEFT/advice export | **Planned (v0.8+)** |
 | 9. Payroll period / run foundation | `PayrollPeriod` (Open/Closed, overlap checks), `PayrollRun` (Draft+status scaffold), `PayrollResult` / `PayrollResultComponent`, `PayrollAuditLog`; services under `apps/payroll/services/` | **Implemented (v0.8.1 foundation)** |
 | 10. Run calculation | `calculate_run`: attendance + effective assignment + formula + proration → results; Incomplete on per-employee errors; recalculate unlocked | **Implemented (Sprint 8.2)** |
-| 11. Approval / lock | Reviewed → Approved → Locked immutability | **Planned (Sprint 8.3)** |
+| 11. Approval / lock | Reviewed → Approved → Locked immutability | **Implemented (Sprint 8.3)** |
+| 12. Reports / payslip preparation | Snapshot-only on-screen payroll reports, Excel exports, and draft/final payslip preview; PDF rendering remains deferred | **Implemented (Sprint 8.4)** |
 
-**Legacy:** `PayPeriod` / `Payslip` remain for existing payslip generation. Prefer `PayrollPeriod` / `PayrollRun` as source of truth going forward; payslip wiring is deferred.
+**Legacy:** `PayPeriod` / `Payslip` remain for existing payslip generation. `PayrollPeriod` / `PayrollRun` snapshots now supply report and preview data; PDF generation remains planned.
 
 **Proration (Sprint 8.2):** calendar days in period vs payable days (eligible days after mid-month join / exit; LOP; half-day = 0.5 present). See [calculation-sequence.md](calculation-sequence.md).
 

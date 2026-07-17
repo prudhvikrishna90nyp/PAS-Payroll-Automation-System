@@ -2,7 +2,7 @@
 
 {% block title %}Payroll Reports{% endblock %}
 {% block page_heading %}Payroll Reports{% endblock %}
-{% block page_subtitle %}Structure, component, salary and CTC registers (Excel){% endblock %}
+{% block page_subtitle %}Snapshot payroll reports and master-data Excel registers{% endblock %}
 
 {% block content %}
 {% include "payroll/_nav.html" %}
@@ -23,12 +23,26 @@
     </div>
 </div>
 
-<div class="list-group shadow-sm">
-    {% for key, label in reports %}
-    <a class="list-group-item list-group-item-action report-link" href="{% url 'payroll:report_download' key %}" data-base="{% url 'payroll:report_download' key %}">
-        {{ label }}
-    </a>
-    {% endfor %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header"><strong>Engine reports</strong><span class="text-muted ms-2">On-screen snapshots with Excel export</span></div>
+    <div class="list-group list-group-flush">
+        {% for slug, title, description in engine_reports %}
+        <a class="list-group-item list-group-item-action" href="{% url 'payroll:engine_report' slug %}">
+            <strong>{{ title }}</strong><br><small class="text-muted">{{ description }}</small>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header"><strong>Structure and master Excel reports</strong></div>
+    <div class="list-group list-group-flush">
+        {% for key, label in reports %}
+        <a class="list-group-item list-group-item-action report-link" href="{% url 'payroll:report_download' key %}" data-base="{% url 'payroll:report_download' key %}">
+            {{ label }}
+        </a>
+        {% endfor %}
+    </div>
 </div>
 
 <script>

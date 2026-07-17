@@ -40,9 +40,13 @@ urlpatterns = [
     path('runs/<int:pk>/review/', views.RunReviewView.as_view(), name='run_review'),
     path('runs/<int:pk>/approve/', views.RunApproveView.as_view(), name='run_approve'),
     path('runs/<int:pk>/lock/', views.RunLockView.as_view(), name='run_lock'),
+    path('runs/<int:run_id>/results/<int:result_id>/payslip/', views.PayslipPreviewView.as_view(), name='payslip_preview'),
 
     # Reports
     path('reports/', views.PayrollReportIndexView.as_view(), name='report_index'),
+    # Engine reports (Sprint 8.4) — routes precede the structure export catch-all.
+    path('reports/engine/<slug:report_slug>/', views.EngineReportPageView.as_view(), name='engine_report'),
+    path('reports/engine/<slug:report_slug>/export/', views.EngineReportExportView.as_view(), name='engine_report_export'),
     path('reports/<str:report_type>/', views.PayrollReportDownloadView.as_view(), name='report_download'),
 
     # Payslips (legacy PayPeriod)

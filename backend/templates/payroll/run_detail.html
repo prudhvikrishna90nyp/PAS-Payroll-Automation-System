@@ -100,17 +100,19 @@
                     <th class="text-end">Gross</th>
                     <th class="text-end">Deductions</th>
                     <th class="text-end">Net</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
                 {% for result in results %}
                 <tr>
-                    <td>{{ result.employee.employee_code }} — {{ result.employee.full_name }}</td>
+                    <td>{% if result.employee_display %}{{ result.employee_display.employee_code }} — {{ result.employee_display.full_name }}{% else %}Archived employee #{{ result.employee_id }}{% endif %}</td>
                     <td class="text-end">{{ result.present_days }}</td>
                     <td class="text-end">{{ result.lop_days }}</td>
                     <td class="text-end">{{ result.gross }}</td>
                     <td class="text-end">{{ result.total_deductions }}</td>
                     <td class="text-end">{{ result.net_salary }}</td>
+                    <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{% url 'payroll:payslip_preview' run.pk result.pk %}">Payslip</a></td>
                 </tr>
                 {% endfor %}
             </tbody>

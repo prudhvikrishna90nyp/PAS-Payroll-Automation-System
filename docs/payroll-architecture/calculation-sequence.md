@@ -98,6 +98,9 @@ sequenceDiagram
 | `attendance_loader.py` / `salary_loader.py` | Period attendance + effective assignment | **Implemented (Sprint 8.2)** |
 | `statutory.py` | EE/ER PF, ESI, PT, TDS helpers | **Stubs** — full engines **Planned (Sprint 9)** |
 | `payslip_generator.py` | Legacy payslip path | **Implemented (v0.7)** |
+| `payslip_data.py` | Read-only payslip preview dataset from `PayrollResult` snapshots | **Implemented (Sprint 8.4)** |
+| `report_queries.py` | Visibility-aware snapshot report queries, totals, and summaries | **Implemented (Sprint 8.4)** |
+| `export_service.py` | Snapshot-only payroll-engine Excel exports | **Implemented (Sprint 8.4)** |
 | `validation.py` | Structure / period / run calculable checks | **Implemented** |
 
 ### Net pay (run engine)

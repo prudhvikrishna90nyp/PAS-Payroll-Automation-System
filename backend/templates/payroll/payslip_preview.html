@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Payslip — {{ dataset.employee.name }}{% endblock %}
+{% block page_heading %}Payslip preview{% endblock %}
+{% block page_subtitle %}{{ dataset.company.name }} · {{ dataset.period.month|stringformat:"02d" }}/{{ dataset.period.year }}{% endblock %}
+{% block extra_css %}
+<style>
+    .payslip-sheet { position: relative; }
+    .payslip-watermark { position: absolute; inset: 40% 0 auto; transform: rotate(-25deg); color: rgba(180, 30, 30, .16); font-size: 7rem; font-weight: 700; text-align: center; pointer-events: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+<div class="card shadow-sm payslip-sheet">
+    {% if dataset.watermark %}<div class="payslip-watermark">{{ dataset.watermark }}</div>{% endif %}
+    <div class="card-header d-flex justify-content-between"><strong>{{ dataset.company.name }}</strong><span class="badge text-bg-{% if dataset.run.is_final %}success{% else %}warning{% endif %}">{{ dataset.status_banner }}</span></div>
+    <div class="card-body">
+        <div class="row mb-4">
+            <div class="col-md-6"><strong>{{ dataset.employee.name }}</strong><br>{{ dataset.employee.code }}<br>{{ dataset.employee.department|default:"Unassigned" }}{% if dataset.employee.designation %} · {{ dataset.employee.designation }}{% endif %}<br>{{ dataset.employee.branch|default:"" }}</div>
+            <div class="col-md-6 text-md-end"><strong>Payroll period</strong><br>{{ dataset.period.month|stringformat:"02d" }}/{{ dataset.period.year }}<br>Run #{{ dataset.run.run_number }}<br><small class="text-muted">Result snapshot #{{ dataset.calculation_reference.result_id }}</small></div>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-6"><h5>Earnings</h5><table class="table table-sm"><tbody>{% for line in dataset.earnings %}<tr><td>{{ line.code }} — {{ line.name }}</td><td class="text-end">{{ line.amount }}</td></tr>{% empty %}<tr><td class="text-muted">No earnings lines</td></tr>{% endfor %}<tr class="fw-bold"><td>Total earnings</td><td class="text-end">{{ dataset.total_earnings }}</td></tr></tbody></table></div>
+            <div class="col-md-6"><h5>Deductions</h5><table class="table table-sm"><tbody>{% for line in dataset.deductions %}<tr><td>{{ line.code }} — {{ line.name }}</td><td class="text-end">{{ line.amount }}</td></tr>{% empty %}<tr><td class="text-muted">No deduction lines</td></tr>{% endfor %}<tr class="fw-bold"><td>Total deductions</td><td class="text-end">{{ dataset.total_deductions }}</td></tr></tbody></table></div>
+        </div>
+        <div class="row border-top pt-3"><div class="col-md-3"><strong>Present</strong><br>{{ dataset.attendance.present_days }}</div><div class="col-md-3"><strong>LOP</strong><br>{{ dataset.attendance.lop_days }}</div><div class="col-md-3"><strong>Gross</strong><br>{{ dataset.gross }}</div><div class="col-md-3"><strong>Net salary</strong><br><strong>{{ dataset.net }}</strong></div></div>
+    </div>
+    <div class="card-footer text-muted small">Source: immutable payroll result snapshot. PDF generation is planned.</div>
+</div>
+{% endblock %}

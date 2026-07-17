@@ -5,7 +5,8 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse
+from django.core.paginator import Paginator
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
@@ -14,7 +15,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from openpyxl import Workbook
 
-from apps.company.models import Company
+from apps.company.models import Branch, Company, Department
 from apps.employee.models import Employee
 
 from .filters import assignment_list_queryset, component_list_queryset, structure_list_queryset
@@ -79,6 +80,22 @@ from .services.exceptions import (
 )
 from .services.locking import lock_run
 from .services.payroll_engine import calculate_run, close_period, create_run, open_period
+from .services.export_service import ENGINE_EXPORT_BUILDERS
+from .services.payslip_data import build_payslip_dataset
+from .services.report_queries import (
+    ReportFilters,
+    aggregate_component_totals,
+    aggregate_result_totals,
+    branch_summary,
+    company_summary,
+    component_queryset,
+    companies_visible_to_user,
+    department_summary,
+    load_employees_map,
+    results_queryset,
+    run_control_queryset,
+    status_label_for_display,
+)
 from .services import permissions as workflow_perms
 from .services.salary_calculator import calculate_assignment_components, calculate_structure_components
 from .services.validation import validate_structure
@@ -557,6 +574,114 @@ class AssignmentArchiveView(PayrollLoginPermissionMixin, View):
 
 # ---- Reports ----
 
+ENGINE_REPORT_SLUGS = {
+    'payroll-register': 'payroll_register',
+    'earnings-register': 'earnings_register',
+    'deductions-register': 'deductions_register',
+    'net-salary-register': 'net_salary_register',
+    'employee-payroll-detail': 'employee_payroll_detail',
+    'department-payroll-summary': 'department_payroll_summary',
+    'branch-payroll-summary': 'branch_payroll_summary',
+    'company-payroll-summary': 'company_payroll_summary',
+    'payroll-run-control': 'payroll_run_control',
+}
+ENGINE_REPORTS = [
+    ('payroll-register', 'Payroll Register', 'Payroll result snapshots by employee.'),
+    ('earnings-register', 'Earnings Register', 'Earning component amounts by employee.'),
+    ('deductions-register', 'Deductions Register', 'Deduction component amounts by employee.'),
+    ('net-salary-register', 'Net Salary Register', 'Gross, deductions, and net salary by employee.'),
+    ('employee-payroll-detail', 'Employee Payroll Detail', 'Attendance and full payroll snapshot per employee.'),
+    ('department-payroll-summary', 'Department Payroll Summary', 'Payroll totals grouped by department.'),
+    ('branch-payroll-summary', 'Branch Payroll Summary', 'Payroll totals grouped by branch.'),
+    ('company-payroll-summary', 'Company Payroll Summary', 'Payroll totals grouped by company.'),
+    ('payroll-run-control', 'Payroll Run Control', 'Control totals and statuses by payroll run.'),
+]
+
+
+def _engine_report_data(report_key, filters):
+    """Return display columns, snapshot-derived rows, and unpaginated totals."""
+    result_columns = [
+        'Company', 'Period', 'Run #', 'Status', 'Employee code', 'Employee name',
+    ]
+    if report_key in {'payroll_register', 'net_salary_register', 'employee_payroll_detail'}:
+        results = list(results_queryset(filters))
+        employees = load_employees_map({result.employee_id for result in results})
+        rows = []
+        for result in results:
+            run, employee = result.run, employees.get(result.employee_id)
+            base = [
+                run.company.company_name, f'{run.period.month:02d}/{run.period.year}',
+                run.run_number, status_label_for_display(run.status),
+                getattr(employee, 'employee_code', ''), getattr(employee, 'full_name', ''),
+            ]
+            if report_key == 'payroll_register':
+                rows.append({'cells': base + [
+                    getattr(getattr(employee, 'branch', None), 'branch_name', ''),
+                    getattr(getattr(employee, 'department', None), 'name', ''),
+                    result.present_days, result.lop_days, result.gross, result.total_earnings,
+                    result.total_deductions, result.net_salary,
+                ]})
+            elif report_key == 'net_salary_register':
+                rows.append({'cells': base + [result.gross, result.total_deductions, result.net_salary]})
+            else:
+                rows.append({'cells': base + [
+                    result.present_days, result.absent_days, result.lop_days, result.overtime_hours,
+                    result.gross, result.total_earnings, result.total_deductions,
+                    result.net_salary, result.ctc_snapshot,
+                ]})
+        columns = {
+            'payroll_register': result_columns + ['Branch', 'Department', 'Present', 'LOP', 'Gross', 'Earnings', 'Deductions', 'Net'],
+            'net_salary_register': result_columns + ['Gross', 'Deductions', 'Net'],
+            'employee_payroll_detail': result_columns + ['Present', 'Absent', 'LOP', 'Overtime', 'Gross', 'Earnings', 'Deductions', 'Net', 'CTC'],
+        }[report_key]
+        return columns, rows, aggregate_result_totals(results_queryset(filters))
+
+    if report_key in {'earnings_register', 'deductions_register'}:
+        component_type = ComponentType.EARNING if report_key == 'earnings_register' else ComponentType.DEDUCTION
+        components = list(component_queryset(filters, component_type))
+        employees = load_employees_map({item.result.employee_id for item in components})
+        rows = [
+            {'cells': [
+                item.result.run.company.company_name,
+                f'{item.result.run.period.month:02d}/{item.result.run.period.year}',
+                item.result.run.run_number, status_label_for_display(item.result.run.status),
+                getattr(employees.get(item.result.employee_id), 'employee_code', ''),
+                getattr(employees.get(item.result.employee_id), 'full_name', ''),
+                item.component_code, item.component_name, item.amount,
+            ]}
+            for item in components
+        ]
+        return result_columns + ['Component code', 'Component name', 'Amount'], rows, aggregate_component_totals(component_queryset(filters, component_type))
+
+    if report_key in {'department_payroll_summary', 'branch_payroll_summary', 'company_payroll_summary'}:
+        summary = {
+            'department_payroll_summary': department_summary,
+            'branch_payroll_summary': branch_summary,
+            'company_payroll_summary': company_summary,
+        }[report_key]
+        summary_rows, totals = summary(filters)
+        rows = [{'cells': [row.name, row.employee_count, row.gross, row.total_earnings, row.total_deductions, row.net_salary]} for row in summary_rows]
+        label = {
+            'department_payroll_summary': 'Department',
+            'branch_payroll_summary': 'Branch',
+            'company_payroll_summary': 'Company',
+        }[report_key]
+        return [label, 'Employees', 'Gross', 'Earnings', 'Deductions', 'Net'], rows, totals
+
+    if report_key == 'payroll_run_control':
+        rows = []
+        for run in run_control_queryset(filters).prefetch_related('results'):
+            totals = aggregate_result_totals(run.results.all())
+            rows.append({'cells': [
+                run.company.company_name, f'{run.period.month:02d}/{run.period.year}',
+                run.run_number, status_label_for_display(run.status), run.results.count(),
+                totals['gross'], totals['total_earnings'], totals['total_deductions'], totals['net_salary'],
+            ]})
+        return ['Company', 'Period', 'Run #', 'Status', 'Results', 'Gross', 'Earnings', 'Deductions', 'Net'], rows, aggregate_result_totals(results_queryset(filters))
+
+    raise Http404('Unknown engine report.')
+
+
 class PayrollReportIndexView(PayrollLoginPermissionMixin, PayrollNavMixin, View):
     permission_required = VIEW_STRUCTURE
     template_name = 'payroll/report_index.html'
@@ -575,8 +700,75 @@ class PayrollReportIndexView(PayrollLoginPermissionMixin, PayrollNavMixin, View)
                     ('salary_revision', 'Salary Revision Report'),
                     ('ctc_register', 'CTC Register'),
                 ],
+                'engine_reports': ENGINE_REPORTS,
             },
         )
+
+
+class EngineReportPageView(PayrollLoginPermissionMixin, PayrollNavMixin, View):
+    permission_required = VIEW_RUN
+    template_name = 'payroll/engine_report.html'
+
+    def get(self, request, report_slug):
+        report_key = ENGINE_REPORT_SLUGS.get(report_slug)
+        if not report_key:
+            raise Http404('Unknown engine report.')
+        filters = ReportFilters.from_params(request.GET, user=request.user)
+        columns, rows, totals = _engine_report_data(report_key, filters)
+        if report_key not in {
+            'department_payroll_summary', 'branch_payroll_summary', 'company_payroll_summary',
+        }:
+            for row in rows:
+                row['status'] = row['cells'][3]
+        query = request.GET.copy()
+        query.pop('page', None)
+        visible_company_ids = companies_visible_to_user(request.user)
+        companies = Company.objects.filter(is_active=True).order_by('company_name')
+        if visible_company_ids is not None:
+            companies = companies.filter(pk__in=visible_company_ids)
+        title, description = next((title, description) for slug, title, description in ENGINE_REPORTS if slug == report_slug)
+        return render(request, self.template_name, {
+            'payroll_nav': True,
+            'report_slug': report_slug,
+            'report_title': title,
+            'report_description': description,
+            'columns': columns,
+            'page_obj': Paginator(rows, 25).get_page(request.GET.get('page')),
+            'totals': totals,
+            'companies': companies,
+            'periods': PayrollPeriod.objects.select_related('company').order_by('-year', '-month')[:100],
+            'branches': Branch.objects.order_by('company__company_name', 'branch_name'),
+            'departments': Department.objects.order_by('company__company_name', 'name'),
+            'filters': filters,
+            'export_query': query.urlencode(),
+        })
+
+
+class EngineReportExportView(PayrollLoginPermissionMixin, View):
+    permission_required = VIEW_RUN
+
+    def get(self, request, report_slug):
+        report_key = ENGINE_REPORT_SLUGS.get(report_slug)
+        builder = ENGINE_EXPORT_BUILDERS.get(report_key)
+        if not builder:
+            raise Http404('Unknown engine report.')
+        return builder(ReportFilters.from_params(request.GET, user=request.user))
+
+
+class PayslipPreviewView(PayrollLoginPermissionMixin, PayrollNavMixin, View):
+    permission_required = VIEW_RUN
+    template_name = 'payroll/payslip_preview.html'
+
+    def get(self, request, run_id, result_id):
+        result = get_object_or_404(
+            PayrollResult.objects.select_related('run', 'run__company', 'run__period').prefetch_related('components'),
+            pk=result_id,
+            run_id=run_id,
+        )
+        return render(request, self.template_name, {
+            'payroll_nav': True,
+            'dataset': build_payslip_dataset(result),
+        })
 
 
 class PayrollReportDownloadView(PayrollLoginPermissionMixin, View):
@@ -718,26 +910,29 @@ class RunDetailView(PayrollLoginPermissionMixin, PayrollNavMixin, DetailView):
         from django.db.models import Sum
 
         context = super().get_context_data(**kwargs)
-        results = (
+        results_queryset = (
             PayrollResult.objects
             .filter(run=self.object)
-            .select_related('employee')
             .prefetch_related('components')
-            .order_by('employee__employee_code')
+            .order_by('employee_id')
         )
-        context['results'] = results
-        totals = results.aggregate(
+        totals = results_queryset.aggregate(
             gross=Sum('gross'),
             total_earnings=Sum('total_earnings'),
             total_deductions=Sum('total_deductions'),
             net_salary=Sum('net_salary'),
         )
+        results = list(results_queryset)
+        employees = load_employees_map(result.employee_id for result in results)
+        for result in results:
+            result.employee_display = employees.get(result.employee_id)
+        context['results'] = results
         context['totals'] = {
             'gross': totals['gross'] or Decimal('0.00'),
             'total_earnings': totals['total_earnings'] or Decimal('0.00'),
             'total_deductions': totals['total_deductions'] or Decimal('0.00'),
             'net_salary': totals['net_salary'] or Decimal('0.00'),
-            'employee_count': results.count(),
+            'employee_count': len(results),
         }
         user = self.request.user
         run = self.object
