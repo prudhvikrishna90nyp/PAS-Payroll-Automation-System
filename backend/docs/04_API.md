@@ -45,10 +45,24 @@ Currently HTML views only. REST API planned for Phase 2 under `/api/v1/`.
 | GET/POST | `/companies/<id>/edit/` | company:company_edit | Required | Edit company |
 | POST | `/companies/<id>/archive/` | company:company_archive | Required | Archive company |
 | POST | `/companies/<id>/restore/` | company:company_restore | Required | Restore company |
-| GET | `/company/branches/` | branch_list | Required | List branches (`?q=`, `?client=`, `?company=`) |
-| GET/POST | `/company/branches/add/` | branch_create | Required | Create branch |
-| GET/POST | `/company/branches/<id>/edit/` | branch_update | Required | Edit branch |
-| POST | `/company/branches/<id>/delete/` | branch_delete | Required | Soft delete |
+| GET | `/branches/` | organisation:branch_list | Required | List branches (`?q=`, `?client=`, `?company=`, `?status=`) |
+| GET | `/branches/<id>/` | organisation:branch_detail | Required | Branch detail |
+| GET/POST | `/branches/add/` | organisation:branch_add | Required | Create branch |
+| GET/POST | `/branches/<id>/edit/` | organisation:branch_edit | Required | Edit branch |
+| POST | `/branches/<id>/archive/` | organisation:branch_archive | Required | Archive branch |
+| POST | `/branches/<id>/restore/` | organisation:branch_restore | Required | Restore branch |
+| GET | `/departments/` | organisation:department_list | Required | List departments (`?q=`, `?company=`, `?status=`) |
+| GET | `/departments/<id>/` | organisation:department_detail | Required | Department detail |
+| GET/POST | `/departments/add/` | organisation:department_add | Required | Create department |
+| GET/POST | `/departments/<id>/edit/` | organisation:department_edit | Required | Edit department |
+| POST | `/departments/<id>/archive/` | organisation:department_archive | Required | Archive department |
+| POST | `/departments/<id>/restore/` | organisation:department_restore | Required | Restore department |
+| GET | `/designations/` | organisation:designation_list | Required | List designations (`?q=`, `?company=`, `?status=`) |
+| GET | `/designations/<id>/` | organisation:designation_detail | Required | Designation detail |
+| GET/POST | `/designations/add/` | organisation:designation_add | Required | Create designation |
+| GET/POST | `/designations/<id>/edit/` | organisation:designation_edit | Required | Edit designation |
+| POST | `/designations/<id>/archive/` | organisation:designation_archive | Required | Archive designation |
+| POST | `/designations/<id>/restore/` | organisation:designation_restore | Required | Restore designation |
 
 ---
 

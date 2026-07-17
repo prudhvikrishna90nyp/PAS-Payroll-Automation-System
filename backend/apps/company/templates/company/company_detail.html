@@ -210,6 +210,32 @@
 </div>
 {% endif %}
 
+<div class="card shadow-sm mb-4">
+    <div class="card-header">Organisation Structure</div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="text-muted small">Branches</div>
+                <div class="fw-semibold">{{ company.branches.count }}</div>
+                <a href="{% url 'organisation:branch_list' %}?company={{ company.pk }}" class="small">View branches</a>
+                · <a href="{% url 'organisation:branch_add' %}?company={{ company.pk }}" class="small">Add</a>
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Departments</div>
+                <div class="fw-semibold">{{ company.departments.count }}</div>
+                <a href="{% url 'organisation:department_list' %}?company={{ company.pk }}" class="small">View departments</a>
+                · <a href="{% url 'organisation:department_add' %}?company={{ company.pk }}" class="small">Add</a>
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Designations</div>
+                <div class="fw-semibold">{{ company.designations.count }}</div>
+                <a href="{% url 'organisation:designation_list' %}?company={{ company.pk }}" class="small">View designations</a>
+                · <a href="{% url 'organisation:designation_add' %}?company={{ company.pk }}" class="small">Add</a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card shadow-sm">
     <div class="card-header">
         Audit Information

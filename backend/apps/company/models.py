@@ -102,11 +102,134 @@ class Branch(SoftDeleteModel):
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
     is_head_office = models.BooleanField(default=False)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='company_branch_created_records',
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='company_branch_updated_records',
+        null=True,
+        blank=True,
+        editable=False,
+    )
 
     class Meta:
         verbose_name_plural = 'Branches'
         ordering = ['company__company_name', 'branch_name']
         unique_together = [['company', 'code']]
+        indexes = [
+            models.Index(fields=['code'], name='branch_code_idx'),
+        ]
 
     def __str__(self):
         return f'{self.company.company_name} — {self.branch_name}'
+
+    def get_absolute_url(self):
+        return reverse('organisation:branch_detail', kwargs={'pk': self.pk})
+
+    def save(self, *args, **kwargs):
+        self.branch_name = self.branch_name.strip()
+        self.code = self.code.strip().upper()
+        if self.email:
+            self.email = self.email.strip().lower()
+        super().save(*args, **kwargs)
+
+
+class Department(SoftDeleteModel):
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name='departments',
+    )
+    name = models.CharField(max_length=200)
+    code = models.CharField(max_length=20)
+    description = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='company_department_created_records',
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='company_department_updated_records',
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
+    class Meta:
+        verbose_name = 'Department'
+        verbose_name_plural = 'Departments'
+        ordering = ['company__company_name', 'name']
+        unique_together = [['company', 'code']]
+        indexes = [
+            models.Index(fields=['code'], name='department_code_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.company.company_name} — {self.name}'
+
+    def get_absolute_url(self):
+        return reverse('organisation:department_detail', kwargs={'pk': self.pk})
+
+    def save(self, *args, **kwargs):
+        self.name = self.name.strip()
+        self.code = self.code.strip().upper()
+        super().save(*args, **kwargs)
+
+
+class Designation(SoftDeleteModel):
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name='designations',
+    )
+    name = models.CharField(max_length=200)
+    code = models.CharField(max_length=20)
+    description = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='company_designation_created_records',
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='company_designation_updated_records',
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
+    class Meta:
+        verbose_name = 'Designation'
+        verbose_name_plural = 'Designations'
+        ordering = ['company__company_name', 'name']
+        unique_together = [['company', 'code']]
+        indexes = [
+            models.Index(fields=['code'], name='designation_code_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.company.company_name} — {self.name}'
+
+    def get_absolute_url(self):
+        return reverse('organisation:designation_detail', kwargs={'pk': self.pk})
+
+    def save(self, *args, **kwargs):
+        self.name = self.name.strip()
+        self.code = self.code.strip().upper()
+        super().save(*args, **kwargs)

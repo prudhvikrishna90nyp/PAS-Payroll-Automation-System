@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}{{ department.name }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>{{ department.name }}</h2>
+        <p class="text-muted mb-0"><strong>{{ department.code }}</strong> · <a href="{% url 'company:company_detail' department.company.pk %}">{{ department.company.company_name }}</a></p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'organisation:department_list' %}?company={{ department.company.pk }}" class="btn btn-outline-secondary">Back</a>
+        <a href="{% url 'organisation:department_edit' department.pk %}" class="btn btn-primary">Edit</a>
+        {% if department.is_active %}
+            <form method="post" action="{% url 'organisation:department_archive' department.pk %}" class="d-inline" onsubmit="return confirm('Archive this department?');">{% csrf_token %}<button type="submit" class="btn btn-outline-danger">Archive</button></form>
+        {% else %}
+            <form method="post" action="{% url 'organisation:department_restore' department.pk %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-outline-success">Restore</button></form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body row g-3">
+        <div class="col-md-4"><div class="text-muted small">Code</div><div class="fw-semibold">{{ department.code }}</div></div>
+        <div class="col-md-4"><div class="text-muted small">Company</div><div><a href="{% url 'company:company_detail' department.company.pk %}">{{ department.company.company_name }}</a></div></div>
+        <div class="col-md-4"><div class="text-muted small">Status</div><div>{% if department.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Archived</span>{% endif %}</div></div>
+        <div class="col-12"><div class="text-muted small">Description</div><div>{{ department.description|default:"-"|linebreaksbr }}</div></div>
+    </div>
+</div>
+
+{% endblock %}

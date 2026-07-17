@@ -25,8 +25,23 @@
         >
             <i class="bi bi-building me-2"></i> Companies
         </a>
-        <a href="{% url 'branch_list' %}" class="list-group-item list-group-item-action {% if 'branch' in request.resolver_match.url_name %}active{% endif %}">
+        <a
+            href="{% url 'organisation:branch_list' %}"
+            class="list-group-item list-group-item-action {% if request.resolver_match.namespace == 'organisation' and 'branch' in request.resolver_match.url_name %}active{% endif %}"
+        >
             <i class="bi bi-diagram-3 me-2"></i> Branches
+        </a>
+        <a
+            href="{% url 'organisation:department_list' %}"
+            class="list-group-item list-group-item-action {% if request.resolver_match.namespace == 'organisation' and 'department' in request.resolver_match.url_name %}active{% endif %}"
+        >
+            <i class="bi bi-grid me-2"></i> Departments
+        </a>
+        <a
+            href="{% url 'organisation:designation_list' %}"
+            class="list-group-item list-group-item-action {% if request.resolver_match.namespace == 'organisation' and 'designation' in request.resolver_match.url_name %}active{% endif %}"
+        >
+            <i class="bi bi-person-badge me-2"></i> Designations
         </a>
         <a href="{% url 'employee_list' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'employee_list' %}active{% endif %}">
             <i class="bi bi-people me-2"></i> Employees

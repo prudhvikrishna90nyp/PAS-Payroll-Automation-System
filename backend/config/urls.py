@@ -9,7 +9,7 @@ urlpatterns = [
     path('accounts/', include('apps.accounts.urls')),
     path('clients/', include('apps.clients.urls')),
     path('companies/', include('apps.company.urls')),
-    path('branches/', include('apps.company.branch_urls')),
+    path('', include('apps.company.organisation_urls')),
     path('employee/', include('apps.employee.urls')),
     path('attendance/', include('apps.attendance.urls')),
     path('payroll/', include('apps.payroll.urls')),

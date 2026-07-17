@@ -1,18 +1,15 @@
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
-from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from apps.clients.models import Client
-from apps.common.utils import paginate, status_filter
 
-from .forms import BranchForm, CompanyForm
-from .models import Branch, Company
+from .forms import CompanyForm
+from .models import Company
 
 
 class CompanyListView(LoginRequiredMixin, ListView):
@@ -124,72 +121,3 @@ class CompanyRestoreView(LoginRequiredMixin, View):
         company.save(update_fields=['is_active', 'updated_by', 'updated_at'])
         messages.success(request, f'{company.company_name} was restored.')
         return redirect('company:company_list')
-
-
-@login_required
-def branch_list(request):
-    queryset = Branch.objects.select_related('company', 'company__client')
-    q = request.GET.get('q', '').strip()
-    company_id = request.GET.get('company')
-    client_id = request.GET.get('client')
-    if q:
-        queryset = queryset.filter(
-            Q(branch_name__icontains=q)
-            | Q(code__icontains=q)
-            | Q(company__company_name__icontains=q)
-        )
-    if company_id:
-        queryset = queryset.filter(company_id=company_id)
-    if client_id:
-        queryset = queryset.filter(company__client_id=client_id)
-    queryset = status_filter(queryset, request)
-    page_obj = paginate(request, queryset)
-    params = request.GET.copy()
-    params.pop('page', None)
-    return render(request, 'company/branch_list.html', {
-        'page_obj': page_obj,
-        'q': q,
-        'status': request.GET.get('status', ''),
-        'company_id': company_id or '',
-        'client_id': client_id or '',
-        'clients': Client.objects.filter(is_active=True),
-        'companies': Company.objects.filter(is_active=True),
-        'filter_query': params.urlencode(),
-    })
-
-
-@login_required
-def branch_create(request):
-    form = BranchForm(request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        form.save()
-        messages.success(request, 'Branch created successfully.')
-        return redirect('branch_list')
-    return render(request, 'company/branch_form.html', {
-        'form': form,
-        'title': 'Add Branch',
-    })
-
-
-@login_required
-def branch_update(request, pk):
-    branch = get_object_or_404(Branch, pk=pk)
-    form = BranchForm(request.POST or None, instance=branch)
-    if request.method == 'POST' and form.is_valid():
-        form.save()
-        messages.success(request, 'Branch updated successfully.')
-        return redirect('branch_list')
-    return render(request, 'company/branch_form.html', {
-        'form': form,
-        'title': 'Edit Branch',
-        'object': branch,
-    })
-
-
-@login_required
-@require_POST
-def branch_delete(request, pk):
-    branch = get_object_or_404(Branch, pk=pk)
-    branch.soft_delete()
-    messages.success(request, f'Branch "{branch.branch_name}" deleted.')
-    return redirect('branch_list')

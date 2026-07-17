@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit Branch{% else %}Add Branch{% endif %}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>{% if object %}Edit Branch{% else %}Add Branch{% endif %}</h2>
+        <p class="text-muted mb-0">Branch location and contact details under a company.</p>
+    </div>
+    <a href="{% url 'organisation:branch_list' %}" class="btn btn-outline-secondary">Back to Branches</a>
+</div>
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">Branch Information</div>
+        <div class="card-body row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Company</label>{{ form.company }}
+                {% for error in form.company.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Branch Name</label>{{ form.branch_name }}
+                {% for error in form.branch_name.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Code</label>{{ form.code }}
+                {% for error in form.code.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Contact Person</label>{{ form.contact_person }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Phone</label>{{ form.phone }}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Email</label>{{ form.email }}
+            </div>
+            <div class="col-md-6">
+                <div class="form-check mt-4">
+                    {{ form.is_head_office }}
+                    <label class="form-check-label" for="{{ form.is_head_office.id_for_label }}">Head office</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">Address</div>
+        <div class="card-body row g-3">
+            <div class="col-12"><label class="form-label">Address</label>{{ form.address }}</div>
+            <div class="col-md-4"><label class="form-label">State</label>{{ form.state }}</div>
+            <div class="col-md-4"><label class="form-label">District</label>{{ form.district }}</div>
+            <div class="col-md-4"><label class="form-label">PIN Code</label>{{ form.pin_code }}</div>
+            <div class="col-12">
+                <div class="form-check">
+                    {{ form.is_active }}
+                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">Active branch</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+        <a href="{% url 'organisation:branch_list' %}" class="btn btn-outline-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">Save Branch</button>
+    </div>
+</form>
+
+{% endblock %}

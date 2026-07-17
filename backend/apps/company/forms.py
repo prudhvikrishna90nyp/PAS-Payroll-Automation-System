@@ -3,7 +3,7 @@ from django import forms
 from apps.clients.models import Client
 from apps.common.validators import validate_gstin, validate_pan, validate_tan
 
-from .models import Branch, Company
+from .models import Branch, Company, Department, Designation
 
 
 class CompanyForm(forms.ModelForm):
@@ -74,7 +74,7 @@ class BranchForm(forms.ModelForm):
         widgets = {
             'company': forms.Select(attrs={'class': 'form-select'}),
             'branch_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'code': forms.TextInput(attrs={'class': 'form-control'}),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Unique within company'}),
             'address': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'state': forms.TextInput(attrs={'class': 'form-control'}),
             'district': forms.TextInput(attrs={'class': 'form-control'}),
@@ -85,3 +85,80 @@ class BranchForm(forms.ModelForm):
             'is_head_office': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['company'].queryset = Company.objects.filter(is_active=True).order_by('company_name')
+
+    def clean_code(self):
+        code = self.cleaned_data.get('code', '').strip().upper()
+        if not code:
+            raise forms.ValidationError('Branch code is required.')
+        company = self.cleaned_data.get('company')
+        if company:
+            queryset = Branch.all_objects.filter(company=company, code__iexact=code)
+            if self.instance.pk:
+                queryset = queryset.exclude(pk=self.instance.pk)
+            if queryset.exists():
+                raise forms.ValidationError('This code is already used for the selected company.')
+        return code
+
+
+class DepartmentForm(forms.ModelForm):
+    class Meta:
+        model = Department
+        fields = ['company', 'name', 'code', 'description', 'is_active']
+        widgets = {
+            'company': forms.Select(attrs={'class': 'form-select'}),
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Unique within company'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['company'].queryset = Company.objects.filter(is_active=True).order_by('company_name')
+
+    def clean_code(self):
+        code = self.cleaned_data.get('code', '').strip().upper()
+        if not code:
+            raise forms.ValidationError('Department code is required.')
+        company = self.cleaned_data.get('company')
+        if company:
+            queryset = Department.all_objects.filter(company=company, code__iexact=code)
+            if self.instance.pk:
+                queryset = queryset.exclude(pk=self.instance.pk)
+            if queryset.exists():
+                raise forms.ValidationError('This code is already used for the selected company.')
+        return code
+
+
+class DesignationForm(forms.ModelForm):
+    class Meta:
+        model = Designation
+        fields = ['company', 'name', 'code', 'description', 'is_active']
+        widgets = {
+            'company': forms.Select(attrs={'class': 'form-select'}),
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Unique within company'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['company'].queryset = Company.objects.filter(is_active=True).order_by('company_name')
+
+    def clean_code(self):
+        code = self.cleaned_data.get('code', '').strip().upper()
+        if not code:
+            raise forms.ValidationError('Designation code is required.')
+        company = self.cleaned_data.get('company')
+        if company:
+            queryset = Designation.all_objects.filter(company=company, code__iexact=code)
+            if self.instance.pk:
+                queryset = queryset.exclude(pk=self.instance.pk)
+            if queryset.exists():
+                raise forms.ValidationError('This code is already used for the selected company.')
+        return code

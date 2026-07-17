@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}{{ branch.branch_name }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>{{ branch.branch_name }}</h2>
+        <p class="text-muted mb-0">
+            <strong>{{ branch.code }}</strong> ·
+            <a href="{% url 'company:company_detail' branch.company.pk %}">{{ branch.company.company_name }}</a>
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'organisation:branch_list' %}?company={{ branch.company.pk }}" class="btn btn-outline-secondary">Back</a>
+        <a href="{% url 'organisation:branch_edit' branch.pk %}" class="btn btn-primary">Edit</a>
+        {% if branch.is_active %}
+            <form method="post" action="{% url 'organisation:branch_archive' branch.pk %}" class="d-inline" onsubmit="return confirm('Archive this branch?');">
+                {% csrf_token %}<button type="submit" class="btn btn-outline-danger">Archive</button>
+            </form>
+        {% else %}
+            <form method="post" action="{% url 'organisation:branch_restore' branch.pk %}" class="d-inline">
+                {% csrf_token %}<button type="submit" class="btn btn-outline-success">Restore</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header">Branch Details</div>
+    <div class="card-body row g-3">
+        <div class="col-md-4"><div class="text-muted small">Code</div><div class="fw-semibold">{{ branch.code }}</div></div>
+        <div class="col-md-4"><div class="text-muted small">Company</div><div><a href="{% url 'company:company_detail' branch.company.pk %}">{{ branch.company.company_name }}</a></div></div>
+        <div class="col-md-4"><div class="text-muted small">Status</div><div>{% if branch.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Archived</span>{% endif %}</div></div>
+        <div class="col-md-4"><div class="text-muted small">Head Office</div><div>{% if branch.is_head_office %}Yes{% else %}No{% endif %}</div></div>
+        <div class="col-md-4"><div class="text-muted small">Contact Person</div><div>{{ branch.contact_person|default:"-" }}</div></div>
+        <div class="col-md-4"><div class="text-muted small">Phone</div><div>{{ branch.phone|default:"-" }}</div></div>
+        <div class="col-md-4"><div class="text-muted small">Email</div><div>{{ branch.email|default:"-" }}</div></div>
+        <div class="col-12"><div class="text-muted small">Address</div><div>{{ branch.address|default:"-"|linebreaksbr }}</div></div>
+        <div class="col-md-4"><div class="text-muted small">State</div><div>{{ branch.state|default:"-" }}</div></div>
+        <div class="col-md-4"><div class="text-muted small">District</div><div>{{ branch.district|default:"-" }}</div></div>
+        <div class="col-md-4"><div class="text-muted small">PIN Code</div><div>{{ branch.pin_code|default:"-" }}</div></div>
+    </div>
+</div>
+
+{% endblock %}
