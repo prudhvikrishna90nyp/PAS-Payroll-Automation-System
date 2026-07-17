@@ -17,6 +17,14 @@ class EmploymentStatus(models.TextChoices):
     RETIRED = 'retired', 'Retired'
 
 
+class EmploymentType(models.TextChoices):
+    PERMANENT = 'permanent', 'Permanent'
+    CONTRACT = 'contract', 'Contract'
+    TEMPORARY = 'temporary', 'Temporary'
+    INTERN = 'intern', 'Intern'
+    CONSULTANT = 'consultant', 'Consultant'
+
+
 class Gender(models.TextChoices):
     MALE = 'male', 'Male'
     FEMALE = 'female', 'Female'
@@ -26,8 +34,13 @@ class Gender(models.TextChoices):
 class DocumentType(models.TextChoices):
     AADHAAR = 'aadhaar', 'Aadhaar'
     PAN = 'pan', 'PAN Card'
-    OFFER_LETTER = 'offer_letter', 'Offer Letter'
     APPOINTMENT = 'appointment', 'Appointment Letter'
+    RESUME = 'resume', 'Resume'
+    EDUCATIONAL = 'educational', 'Educational Certificates'
+    BANK_PASSBOOK = 'bank_passbook', 'Bank Passbook'
+    PF_FORM = 'pf_form', 'PF Form'
+    ESI_CARD = 'esi_card', 'ESI Card'
+    OFFER_LETTER = 'offer_letter', 'Offer Letter'
     BANK_PROOF = 'bank_proof', 'Bank Proof'
     OTHER = 'other', 'Other'
 
@@ -152,6 +165,11 @@ class Employee(SoftDeleteModel):
     esi_eligible = models.BooleanField('ESI Eligible', default=False)
     date_of_joining = models.DateField()
     date_of_exit = models.DateField(null=True, blank=True)
+    employment_type = models.CharField(
+        max_length=20,
+        choices=EmploymentType.choices,
+        default=EmploymentType.PERMANENT,
+    )
     employment_status = models.CharField(
         max_length=20,
         choices=EmploymentStatus.choices,

@@ -6,23 +6,31 @@
 
 {% block content %}
 <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-xl-4">
+    <div class="col-sm-6 col-xl-3">
         <div class="card border-0 shadow-sm">
             <div class="card-body">
-                <div class="text-muted small">Employees</div>
+                <div class="text-muted small">Active Employees</div>
                 <div class="fs-3 fw-bold text-primary">{{ employee_count }}</div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-xl-4">
+    <div class="col-sm-6 col-xl-3">
         <div class="card border-0 shadow-sm">
             <div class="card-body">
-                <div class="text-muted small">Departments</div>
-                <div class="fs-3 fw-bold text-primary">{{ department_count }}</div>
+                <div class="text-muted small">PF Eligible</div>
+                <div class="fs-3 fw-bold text-primary">{{ pf_employee_count }}</div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-xl-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-muted small">ESI Eligible</div>
+                <div class="fs-3 fw-bold text-primary">{{ esi_employee_count }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
         <div class="card border-0 shadow-sm">
             <div class="card-body">
                 <div class="text-muted small">Payslips</div>
@@ -34,10 +42,39 @@
 
 <div class="card border-0 shadow-sm">
     <div class="card-body">
-        <h5 class="card-title">Available Reports</h5>
+        <h5 class="card-title">Employee Reports</h5>
         <div class="list-group list-group-flush">
+            <a class="list-group-item list-group-item-action" href="{% url 'employee_register_report' %}">
+                Employee Register
+            </a>
+            <a class="list-group-item list-group-item-action" href="{% url 'employees:employee_export' %}?status=active&report=register">
+                Export Employee Register (Excel)
+            </a>
+            <a class="list-group-item list-group-item-action" href="{% url 'employees:employee_export_pdf' %}?status=active&report=register">
+                Export Employee Register (PDF)
+            </a>
+            <a class="list-group-item list-group-item-action" href="{% url 'pf_employees_report' %}">
+                PF Employees
+            </a>
+            <a class="list-group-item list-group-item-action" href="{% url 'employees:employee_export' %}?pf_eligible=yes&status=active&report=pf">
+                Export PF Employees (Excel)
+            </a>
+            <a class="list-group-item list-group-item-action" href="{% url 'employees:employee_export_pdf' %}?pf_eligible=yes&status=active&report=pf">
+                Export PF Employees (PDF)
+            </a>
+            <a class="list-group-item list-group-item-action" href="{% url 'esi_employees_report' %}">
+                ESI Employees
+            </a>
+            <a class="list-group-item list-group-item-action" href="{% url 'employees:employee_export' %}?esi_eligible=yes&status=active&report=esi">
+                Export ESI Employees (Excel)
+            </a>
+            <a class="list-group-item list-group-item-action" href="{% url 'employees:employee_export_pdf' %}?esi_eligible=yes&status=active&report=esi">
+                Export ESI Employees (PDF)
+            </a>
+            <a class="list-group-item list-group-item-action" href="{% url 'employees:employee_list' %}">
+                Employee Directory (all filters)
+            </a>
             <a class="list-group-item list-group-item-action" href="{% url 'payslip_export_excel' %}">Export Payslips (Excel)</a>
-            <a class="list-group-item list-group-item-action" href="{% url 'employees:employee_list' %}">Employee Directory</a>
             <a class="list-group-item list-group-item-action" href="{% url 'payslip_list' %}">Payroll Summary</a>
         </div>
     </div>

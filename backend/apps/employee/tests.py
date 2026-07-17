@@ -1,7 +1,10 @@
 from datetime import date
 from decimal import Decimal
+from unittest.mock import MagicMock, patch
+import sys
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group, Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
@@ -9,9 +12,19 @@ from django.urls import reverse
 from apps.clients.models import Client
 from apps.company.models import Branch, Company, Department, Designation
 
+from io import BytesIO
+
+from openpyxl import Workbook
+
 from .forms import EmployeeForm
-from .models import Employee, SalaryStructure
+from .import_export import import_employees
+from .models import DocumentType, Employee, SalaryStructure
+from .permissions import ROLE_GROUPS, seed_role_groups
 from .services import generate_employee_code
+
+
+def _employee_permission(codename):
+    return Permission.objects.get(codename=codename, content_type__app_label='employee')
 
 
 class EmployeeTestMixin:
@@ -20,6 +33,18 @@ class EmployeeTestMixin:
             username='empadmin',
             password='TestPassword123!',
         )
+        for codename in (
+            'view_employee',
+            'add_employee',
+            'change_employee',
+            'delete_employee',
+            'view_employeedocument',
+            'add_employeedocument',
+            'change_employeedocument',
+            'delete_employeedocument',
+        ):
+            self.user.user_permissions.add(_employee_permission(codename))
+
         self.client_record = Client.objects.create(
             client_code='CLI001',
             client_name='Deep Enterprises',
@@ -96,6 +121,16 @@ class EmployeeModelTests(EmployeeTestMixin, TestCase):
         )
         self.assertEqual(employee.employee_id, 'EMP0200')
 
+    def test_employment_type_default(self):
+        employee = Employee.objects.create(
+            company=self.company,
+            first_name='Type',
+            date_of_joining=date(2026, 1, 1),
+            basic_salary=Decimal('20000.00'),
+            auto_generate_code=True,
+        )
+        self.assertEqual(employee.employment_type, 'permanent')
+
 
 class EmployeeFormTests(EmployeeTestMixin, TestCase):
     def test_duplicate_employee_code_rejected(self):
@@ -114,6 +149,8 @@ class EmployeeFormTests(EmployeeTestMixin, TestCase):
             'first_name': 'New',
             'date_of_joining': '2026-02-01',
             'basic_salary': '22000',
+            'employment_type': 'permanent',
+            'employment_status': 'active',
             'is_active': True,
         })
         self.assertFalse(form.is_valid())
@@ -137,10 +174,92 @@ class EmployeeFormTests(EmployeeTestMixin, TestCase):
             'first_name': 'Wrong',
             'date_of_joining': '2026-02-01',
             'basic_salary': '22000',
+            'employment_type': 'permanent',
+            'employment_status': 'active',
             'is_active': True,
         })
         self.assertFalse(form.is_valid())
         self.assertIn('branch', form.errors)
+
+    def test_invalid_pan_and_bank_account_rejected(self):
+        form = EmployeeForm(data={
+            'company': self.company.pk,
+            'auto_generate_code': True,
+            'first_name': 'Invalid',
+            'pan': 'BADPAN',
+            'bank_account_number': '12',
+            'date_of_joining': '2026-02-01',
+            'basic_salary': '22000',
+            'employment_type': 'permanent',
+            'employment_status': 'active',
+            'is_active': True,
+        })
+        self.assertFalse(form.is_valid())
+        self.assertIn('pan', form.errors)
+        self.assertIn('bank_account_number', form.errors)
+
+
+class EmployeeImportTests(EmployeeTestMixin, TestCase):
+    def _build_workbook(self, rows):
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append([
+            'Employee Code', 'First Name', 'Last Name', 'Email', 'Mobile',
+            'Branch Code', 'Department Code', 'Designation Code',
+            'Date of Joining', 'Basic Salary', 'PAN', 'Aadhaar', 'UAN',
+            'ESIC Number', 'PF Eligible', 'ESI Eligible', 'Employment Type',
+            'Employment Status', 'Bank Name', 'Account Number', 'IFSC',
+        ])
+        for row in rows:
+            sheet.append(row)
+        buffer = BytesIO()
+        workbook.save(buffer)
+        buffer.seek(0)
+        return buffer
+
+    def test_import_creates_valid_rows(self):
+        workbook = self._build_workbook([
+            [
+                'EMP9001', 'Imported', 'User', 'imp@example.com', '9876543210',
+                'HO', 'FIN', 'MGR', date(2026, 4, 1), 28000, 'ABCDE1234F',
+                '123456789012', '', '', 'Yes', 'No', 'permanent', 'active',
+                'SBI', '123456789012', 'SBIN0001234',
+            ],
+        ])
+        created, skipped, errors = import_employees(self.company, workbook, self.user)
+        self.assertEqual(created, 1)
+        self.assertEqual(skipped, 0)
+        self.assertEqual(errors, [])
+        self.assertTrue(Employee.objects.filter(employee_code='EMP9001').exists())
+
+    def test_import_skips_duplicates(self):
+        Employee.objects.create(
+            company=self.company,
+            employee_code='EMP9001',
+            first_name='Existing',
+            date_of_joining=date(2026, 1, 1),
+            basic_salary=Decimal('20000.00'),
+            auto_generate_code=False,
+        )
+        workbook = self._build_workbook([
+            [
+                'EMP9001', 'Dup', 'User', '', '9876543210',
+                'HO', 'FIN', 'MGR', date(2026, 4, 1), 28000, '',
+                '', '', '', 'Yes', 'No', 'permanent', 'active',
+                '', '', '',
+            ],
+        ])
+        created, skipped, errors = import_employees(self.company, workbook, self.user)
+        self.assertEqual(created, 0)
+        self.assertEqual(skipped, 1)
+        self.assertEqual(len(errors), 1)
+
+    def test_document_types_cover_sprint_list(self):
+        for expected in (
+            'aadhaar', 'pan', 'appointment', 'resume', 'educational',
+            'bank_passbook', 'pf_form', 'esi_card', 'other',
+        ):
+            self.assertIn(expected, DocumentType.values)
 
 
 class EmployeeViewTests(EmployeeTestMixin, TestCase):
@@ -159,6 +278,8 @@ class EmployeeViewTests(EmployeeTestMixin, TestCase):
             date_of_joining=date(2026, 1, 1),
             basic_salary=Decimal('25000.00'),
             auto_generate_code=False,
+            pf_eligible=True,
+            esi_eligible=True,
             created_by=self.user,
             updated_by=self.user,
         )
@@ -172,12 +293,42 @@ class EmployeeViewTests(EmployeeTestMixin, TestCase):
         response = self.client.get(reverse('employees:employee_list'), {'q': 'Ravi'})
         self.assertContains(response, 'Ravi Kumar')
 
+    def test_employee_filter_pf_eligible(self):
+        response = self.client.get(
+            reverse('employees:employee_list'),
+            {'pf_eligible': 'yes', 'status': 'active'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Ravi Kumar')
+
     def test_employee_detail_page(self):
         response = self.client.get(
             reverse('employees:employee_detail', kwargs={'pk': self.employee.pk})
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'EMP0001')
+        self.assertContains(response, 'Personal')
+        self.assertContains(response, 'Employment')
+        self.assertContains(response, 'Payroll')
+        self.assertContains(response, 'Statutory')
+        self.assertContains(response, 'Bank')
+        self.assertContains(response, 'Documents')
+
+    def test_document_upload_on_profile(self):
+        upload = SimpleUploadedFile('aadhaar.pdf', b'%PDF-1.4 test', content_type='application/pdf')
+        response = self.client.post(
+            reverse('employees:employee_detail', kwargs={'pk': self.employee.pk}),
+            {
+                'document_type': DocumentType.AADHAAR,
+                'title': 'Aadhaar Card',
+                'file': upload,
+            },
+        )
+        self.assertRedirects(
+            response,
+            reverse('employees:employee_detail', kwargs={'pk': self.employee.pk}),
+        )
+        self.assertEqual(self.employee.documents.count(), 1)
 
     def test_create_employee_with_photo(self):
         import base64
@@ -201,6 +352,7 @@ class EmployeeViewTests(EmployeeTestMixin, TestCase):
                 'last_name': 'Employee',
                 'date_of_joining': '2026-03-01',
                 'basic_salary': '30000',
+                'employment_type': 'permanent',
                 'employment_status': 'active',
                 'is_active': 'on',
                 'pf_eligible': 'on',
@@ -225,6 +377,77 @@ class EmployeeViewTests(EmployeeTestMixin, TestCase):
             response['Content-Type'],
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         )
+
+    def test_export_employees_pdf(self):
+        class FakeHTML:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def write_pdf(self):
+                return b'%PDF-1.4 mock'
+
+        fake_weasyprint = MagicMock()
+        fake_weasyprint.HTML = FakeHTML
+        with patch.dict(sys.modules, {'weasyprint': fake_weasyprint}):
+            response = self.client.get(
+                reverse('employees:employee_export_pdf'),
+                {'status': 'active', 'report': 'register'},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertTrue(response.content.startswith(b'%PDF'))
+
+    def test_unauthenticated_list_redirects_to_login(self):
+        self.client.logout()
+        response = self.client.get(reverse('employees:employee_list'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/admin/login/', response.url)
+
+    def test_unauthenticated_export_redirects_to_login(self):
+        self.client.logout()
+        response = self.client.get(reverse('employees:employee_export'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/admin/login/', response.url)
+
+    def test_viewer_cannot_add_employee(self):
+        viewer = get_user_model().objects.create_user(
+            username='viewer',
+            password='TestPassword123!',
+        )
+        viewer.user_permissions.add(_employee_permission('view_employee'))
+        self.client.logout()
+        self.client.login(username='viewer', password='TestPassword123!')
+        response = self.client.get(reverse('employees:employee_add'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_import_error_log_download(self):
+        session = self.client.session
+        session['employee_import_errors'] = ['Row 2: First name is required.']
+        session.save()
+        response = self.client.post(
+            reverse('employees:employee_import'),
+            {'download_errors': '1'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+
+
+class EmployeeRoleSeedTests(TestCase):
+    def test_seed_role_groups_creates_expected_groups(self):
+        names = seed_role_groups()
+        self.assertEqual(set(names), set(ROLE_GROUPS.keys()))
+        for name in ROLE_GROUPS:
+            self.assertTrue(Group.objects.filter(name=name).exists())
+        hr = Group.objects.get(name='HR')
+        self.assertTrue(hr.permissions.filter(codename='view_employee').exists())
+        self.assertTrue(hr.permissions.filter(codename='add_employee').exists())
+        self.assertFalse(hr.permissions.filter(codename='delete_employee').exists())
+        viewer = Group.objects.get(name='Viewer')
+        self.assertTrue(viewer.permissions.filter(codename='view_employee').exists())
+        self.assertFalse(viewer.permissions.filter(codename='add_employee').exists())
 
 
 class SalaryStructureTests(EmployeeTestMixin, TestCase):

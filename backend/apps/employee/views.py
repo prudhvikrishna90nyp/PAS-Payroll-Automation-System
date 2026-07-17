@@ -1,7 +1,8 @@
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Q
-from django.shortcuts import get_object_or_404, redirect
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.views import redirect_to_login
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
@@ -9,75 +10,46 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from apps.clients.models import Client
 from apps.company.models import Branch, Company, Department, Designation
 
+from .filters import employee_list_queryset
 from .forms import EmployeeDocumentForm, EmployeeForm, EmployeeImportForm
-from .import_export import export_employee_template, export_employees, import_employees
-from .models import Employee, EmploymentStatus
+from .import_export import (
+    export_employee_template,
+    export_employees,
+    export_import_errors,
+    import_employees,
+)
+from .models import Employee, EmploymentStatus, EmploymentType
+from .pdf_export import render_employee_register_pdf
+from .permissions import (
+    ADD_EMPLOYEE,
+    CHANGE_EMPLOYEE,
+    DELETE_EMPLOYEE,
+    VIEW_EMPLOYEE,
+)
 
 
-class EmployeeListView(LoginRequiredMixin, ListView):
+class EmployeeLoginPermissionMixin(LoginRequiredMixin, PermissionRequiredMixin):
+    """Require authentication and an employee model permission."""
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect_to_login(
+                self.request.get_full_path(),
+                self.get_login_url(),
+                self.get_redirect_field_name(),
+            )
+        raise PermissionDenied(self.get_permission_denied_message())
+
+
+class EmployeeListView(EmployeeLoginPermissionMixin, ListView):
     model = Employee
     template_name = 'employee/employee_list.html'
     context_object_name = 'employees'
     paginate_by = 10
+    permission_required = VIEW_EMPLOYEE
 
     def get_queryset(self):
-        queryset = Employee.objects.select_related(
-            'company',
-            'company__client',
-            'branch',
-            'department',
-            'designation',
-        )
-
-        search_query = self.request.GET.get('q', '').strip()
-        company_id = self.request.GET.get('company', '').strip()
-        branch_id = self.request.GET.get('branch', '').strip()
-        department_id = self.request.GET.get('department', '').strip()
-        designation_id = self.request.GET.get('designation', '').strip()
-        client_id = self.request.GET.get('client', '').strip()
-        status = self.request.GET.get('status', '').strip()
-        employment_status = self.request.GET.get('employment_status', '').strip()
-        pf_eligible = self.request.GET.get('pf_eligible', '').strip()
-        esi_eligible = self.request.GET.get('esi_eligible', '').strip()
-
-        if search_query:
-            queryset = queryset.filter(
-                Q(employee_code__icontains=search_query)
-                | Q(first_name__icontains=search_query)
-                | Q(last_name__icontains=search_query)
-                | Q(email__icontains=search_query)
-                | Q(mobile__icontains=search_query)
-                | Q(pan__icontains=search_query)
-                | Q(aadhaar__icontains=search_query)
-                | Q(company__company_name__icontains=search_query)
-            )
-
-        if client_id:
-            queryset = queryset.filter(company__client_id=client_id)
-        if company_id:
-            queryset = queryset.filter(company_id=company_id)
-        if branch_id:
-            queryset = queryset.filter(branch_id=branch_id)
-        if department_id:
-            queryset = queryset.filter(department_id=department_id)
-        if designation_id:
-            queryset = queryset.filter(designation_id=designation_id)
-        if status == 'active':
-            queryset = queryset.filter(is_active=True)
-        elif status == 'inactive':
-            queryset = queryset.filter(is_active=False)
-        if employment_status:
-            queryset = queryset.filter(employment_status=employment_status)
-        if pf_eligible == 'yes':
-            queryset = queryset.filter(pf_eligible=True)
-        elif pf_eligible == 'no':
-            queryset = queryset.filter(pf_eligible=False)
-        if esi_eligible == 'yes':
-            queryset = queryset.filter(esi_eligible=True)
-        elif esi_eligible == 'no':
-            queryset = queryset.filter(esi_eligible=False)
-
-        return queryset.order_by('company__company_name', 'employee_code')
+        return employee_list_queryset(self.request.GET)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -89,21 +61,33 @@ class EmployeeListView(LoginRequiredMixin, ListView):
         context['client_filter'] = self.request.GET.get('client', '')
         context['status_filter'] = self.request.GET.get('status', '')
         context['employment_status_filter'] = self.request.GET.get('employment_status', '')
+        context['employment_type_filter'] = self.request.GET.get('employment_type', '')
         context['pf_eligible_filter'] = self.request.GET.get('pf_eligible', '')
         context['esi_eligible_filter'] = self.request.GET.get('esi_eligible', '')
         context['clients'] = Client.objects.filter(is_active=True).order_by('client_name')
         context['companies'] = Company.objects.filter(is_active=True).order_by('company_name')
-        context['branches'] = Branch.objects.filter(is_active=True).order_by('company__company_name', 'branch_name')
-        context['departments'] = Department.objects.filter(is_active=True).order_by('company__company_name', 'name')
-        context['designations'] = Designation.objects.filter(is_active=True).order_by('company__company_name', 'name')
+        context['branches'] = Branch.objects.filter(is_active=True).order_by(
+            'company__company_name', 'branch_name'
+        )
+        context['departments'] = Department.objects.filter(is_active=True).order_by(
+            'company__company_name', 'name'
+        )
+        context['designations'] = Designation.objects.filter(is_active=True).order_by(
+            'company__company_name', 'name'
+        )
         context['employment_statuses'] = EmploymentStatus.choices
+        context['employment_types'] = EmploymentType.choices
+        params = self.request.GET.copy()
+        params.pop('page', None)
+        context['querystring'] = params.urlencode()
         return context
 
 
-class EmployeeDetailView(LoginRequiredMixin, DetailView):
+class EmployeeDetailView(EmployeeLoginPermissionMixin, DetailView):
     model = Employee
     template_name = 'employee/employee_detail.html'
     context_object_name = 'employee'
+    permission_required = VIEW_EMPLOYEE
 
     def get_queryset(self):
         return Employee.objects.select_related(
@@ -123,6 +107,9 @@ class EmployeeDetailView(LoginRequiredMixin, DetailView):
         return context
 
     def post(self, request, *args, **kwargs):
+        if not request.user.has_perm(CHANGE_EMPLOYEE):
+            messages.error(request, 'You do not have permission to upload documents.')
+            return redirect('employees:employee_detail', pk=kwargs['pk'])
         self.object = self.get_object()
         form = EmployeeDocumentForm(request.POST, request.FILES)
         if form.is_valid():
@@ -135,11 +122,12 @@ class EmployeeDetailView(LoginRequiredMixin, DetailView):
         return redirect('employees:employee_detail', pk=self.object.pk)
 
 
-class EmployeeCreateView(LoginRequiredMixin, CreateView):
+class EmployeeCreateView(EmployeeLoginPermissionMixin, CreateView):
     model = Employee
     form_class = EmployeeForm
     template_name = 'employee/employee_form.html'
     success_url = reverse_lazy('employees:employee_list')
+    permission_required = ADD_EMPLOYEE
 
     def get_initial(self):
         initial = super().get_initial()
@@ -160,11 +148,12 @@ class EmployeeCreateView(LoginRequiredMixin, CreateView):
         return super().form_invalid(form)
 
 
-class EmployeeUpdateView(LoginRequiredMixin, UpdateView):
+class EmployeeUpdateView(EmployeeLoginPermissionMixin, UpdateView):
     model = Employee
     form_class = EmployeeForm
     template_name = 'employee/employee_form.html'
     success_url = reverse_lazy('employees:employee_list')
+    permission_required = CHANGE_EMPLOYEE
 
     def form_valid(self, form):
         form.instance.updated_by = self.request.user
@@ -176,7 +165,9 @@ class EmployeeUpdateView(LoginRequiredMixin, UpdateView):
         return super().form_invalid(form)
 
 
-class EmployeeArchiveView(LoginRequiredMixin, View):
+class EmployeeArchiveView(EmployeeLoginPermissionMixin, View):
+    permission_required = DELETE_EMPLOYEE
+
     def post(self, request, pk):
         employee = get_object_or_404(Employee, pk=pk)
         employee.is_active = False
@@ -186,7 +177,9 @@ class EmployeeArchiveView(LoginRequiredMixin, View):
         return redirect('employees:employee_list')
 
 
-class EmployeeRestoreView(LoginRequiredMixin, View):
+class EmployeeRestoreView(EmployeeLoginPermissionMixin, View):
+    permission_required = CHANGE_EMPLOYEE
+
     def post(self, request, pk):
         employee = get_object_or_404(Employee, pk=pk)
         employee.is_active = True
@@ -196,42 +189,77 @@ class EmployeeRestoreView(LoginRequiredMixin, View):
         return redirect('employees:employee_list')
 
 
-class EmployeeExportView(LoginRequiredMixin, View):
+class EmployeeExportView(EmployeeLoginPermissionMixin, View):
+    permission_required = VIEW_EMPLOYEE
+
     def get(self, request):
-        queryset = Employee.objects.select_related('branch', 'department', 'designation')
-        company_id = request.GET.get('company')
-        if company_id:
-            queryset = queryset.filter(company_id=company_id)
         if request.GET.get('template') == '1':
             return export_employee_template()
-        return export_employees(queryset)
+        queryset = employee_list_queryset(request.GET)
+        report = request.GET.get('report', '').strip()
+        filename = {
+            'register': 'employee_register.xlsx',
+            'pf': 'pf_employees.xlsx',
+            'esi': 'esi_employees.xlsx',
+        }.get(report, 'employees_export.xlsx')
+        return export_employees(queryset, filename=filename)
 
 
-class EmployeeImportView(LoginRequiredMixin, View):
-    template_name = 'employee/employee_import.html'
-    success_url = reverse_lazy('employees:employee_list')
+class EmployeePdfExportView(EmployeeLoginPermissionMixin, View):
+    permission_required = VIEW_EMPLOYEE
 
     def get(self, request):
-        from django.shortcuts import render
+        queryset = employee_list_queryset(request.GET)
+        report = request.GET.get('report', '').strip()
+        title = {
+            'register': 'Employee Register',
+            'pf': 'PF Eligible Employees',
+            'esi': 'ESI Eligible Employees',
+        }.get(report, 'Employee Register')
+        return render_employee_register_pdf(queryset, title=title, request=request)
 
+
+class EmployeeImportView(EmployeeLoginPermissionMixin, View):
+    template_name = 'employee/employee_import.html'
+    success_url = reverse_lazy('employees:employee_list')
+    permission_required = ADD_EMPLOYEE
+
+    def get(self, request):
         return render(request, self.template_name, {'form': EmployeeImportForm()})
 
     def post(self, request):
-        from django.shortcuts import render
+        if request.POST.get('download_errors') and request.session.get('employee_import_errors'):
+            return export_import_errors(request.session['employee_import_errors'])
 
         form = EmployeeImportForm(request.POST, request.FILES)
         if form.is_valid():
-            created, errors = import_employees(
+            created, skipped, errors = import_employees(
                 form.cleaned_data['company'],
                 form.cleaned_data['file'],
                 request.user,
             )
             if created:
                 messages.success(request, f'{created} employee(s) imported successfully.')
+            if skipped:
+                messages.info(request, f'{skipped} duplicate row(s) were skipped.')
             if errors:
-                messages.warning(request, 'Some rows could not be imported: ' + '; '.join(errors[:5]))
-            if created and not errors:
+                request.session['employee_import_errors'] = errors
+                messages.warning(
+                    request,
+                    f'{len(errors)} row(s) had issues. Download the error log for details.',
+                )
+            elif created:
+                request.session.pop('employee_import_errors', None)
                 return redirect(self.success_url)
-        else:
-            messages.error(request, 'Please upload a valid Excel file.')
+            return render(
+                request,
+                self.template_name,
+                {
+                    'form': form,
+                    'import_errors': errors,
+                    'created_count': created,
+                    'skipped_count': skipped,
+                },
+            )
+        messages.error(request, 'Please upload a valid Excel file.')
         return render(request, self.template_name, {'form': form})

@@ -2,6 +2,7 @@ from django import forms
 
 from apps.common.validators import (
     validate_aadhaar,
+    validate_bank_account,
     validate_ifsc,
     validate_mobile,
     validate_pan,
@@ -9,7 +10,7 @@ from apps.common.validators import (
 )
 from apps.company.models import Branch, Company, Department, Designation
 
-from .models import DocumentType, Employee, EmployeeDocument, SalaryStructure
+from .models import Employee, EmployeeDocument, SalaryStructure
 
 
 class EmployeeForm(forms.ModelForm):
@@ -23,7 +24,7 @@ class EmployeeForm(forms.ModelForm):
             'aadhaar', 'pan', 'uan', 'esic_number',
             'bank_name', 'account_holder_name', 'bank_account_number', 'ifsc_code',
             'salary_structure', 'basic_salary', 'pf_eligible', 'esi_eligible',
-            'date_of_joining', 'date_of_exit', 'employment_status',
+            'date_of_joining', 'date_of_exit', 'employment_type', 'employment_status',
             'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relation',
             'is_active',
         ]
@@ -56,6 +57,7 @@ class EmployeeForm(forms.ModelForm):
             'esi_eligible': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'date_of_joining': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'date_of_exit': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'employment_type': forms.Select(attrs={'class': 'form-select'}),
             'employment_status': forms.Select(attrs={'class': 'form-select'}),
             'emergency_contact_name': forms.TextInput(attrs={'class': 'form-control'}),
             'emergency_contact_phone': forms.TextInput(attrs={'class': 'form-control'}),
@@ -148,6 +150,13 @@ class EmployeeForm(forms.ModelForm):
             validate_ifsc(ifsc)
             return ifsc.strip().upper()
         return ifsc
+
+    def clean_bank_account_number(self):
+        account = self.cleaned_data.get('bank_account_number', '')
+        if account:
+            validate_bank_account(account)
+            return ''.join(str(account).split())
+        return account
 
     def clean(self):
         cleaned_data = super().clean()

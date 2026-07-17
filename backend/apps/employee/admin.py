@@ -32,6 +32,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         'company',
         'department',
         'designation',
+        'employment_type',
         'employment_status',
         'basic_salary',
         'is_active',
@@ -39,6 +40,7 @@ class EmployeeAdmin(admin.ModelAdmin):
     list_filter = (
         'is_active',
         'is_deleted',
+        'employment_type',
         'employment_status',
         'company',
         'branch',
@@ -61,7 +63,8 @@ class EmployeeAdmin(admin.ModelAdmin):
         ('Organisation', {
             'fields': (
                 'company', 'branch', 'department', 'designation',
-                'employee_code', 'auto_generate_code', 'employment_status', 'is_active',
+                'employee_code', 'auto_generate_code',
+                'employment_type', 'employment_status', 'is_active',
             ),
         }),
         ('Personal', {

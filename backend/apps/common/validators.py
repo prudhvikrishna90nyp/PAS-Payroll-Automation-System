@@ -88,3 +88,17 @@ def validate_mobile(value):
             'Enter a valid 10-digit Indian mobile number.',
             code='invalid_mobile',
         )
+
+
+BANK_ACCOUNT_REGEX = re.compile(r'^[0-9]{9,18}$')
+
+
+def validate_bank_account(value):
+    if not value:
+        return
+    normalized = re.sub(r'\s+', '', str(value).strip())
+    if not BANK_ACCOUNT_REGEX.match(normalized):
+        raise ValidationError(
+            'Enter a valid bank account number (9–18 digits).',
+            code='invalid_bank_account',
+        )

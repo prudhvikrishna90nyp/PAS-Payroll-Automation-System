@@ -31,13 +31,29 @@
 <div class="row g-4">
     <div class="col-lg-8">
         <div class="card shadow-sm mb-4">
-            <div class="card-header">Organisation</div>
+            <div class="card-header">Personal</div>
+            <div class="card-body row g-3">
+                <div class="col-md-4"><div class="text-muted small">First Name</div><div>{{ employee.first_name }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Last Name</div><div>{{ employee.last_name|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Gender</div><div>{{ employee.get_gender_display|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Date of Birth</div><div>{{ employee.date_of_birth|date:"d M Y"|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Email</div><div>{{ employee.email|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Mobile</div><div>{{ employee.mobile|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Alternate Mobile</div><div>{{ employee.alternate_mobile|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Emergency Contact</div><div>{{ employee.emergency_contact_name|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Emergency Phone</div><div>{{ employee.emergency_contact_phone|default:"-" }}</div></div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">Employment</div>
             <div class="card-body row g-3">
                 <div class="col-md-6"><div class="text-muted small">Company</div><div><a href="{% url 'company:company_detail' employee.company.pk %}">{{ employee.company.company_name }}</a></div></div>
                 <div class="col-md-6"><div class="text-muted small">Client</div><div>{{ employee.company.client.client_name }}</div></div>
                 <div class="col-md-4"><div class="text-muted small">Branch</div><div>{{ employee.branch.branch_name|default:"-" }}</div></div>
                 <div class="col-md-4"><div class="text-muted small">Department</div><div>{{ employee.department.name|default:"-" }}</div></div>
                 <div class="col-md-4"><div class="text-muted small">Designation</div><div>{{ employee.designation.name|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Employment Type</div><div>{{ employee.get_employment_type_display }}</div></div>
                 <div class="col-md-4"><div class="text-muted small">Employment Status</div><div>{{ employee.get_employment_status_display }}</div></div>
                 <div class="col-md-4"><div class="text-muted small">Date of Joining</div><div>{{ employee.date_of_joining|date:"d M Y" }}</div></div>
                 <div class="col-md-4"><div class="text-muted small">Date of Exit</div><div>{{ employee.date_of_exit|date:"d M Y"|default:"-" }}</div></div>
@@ -45,25 +61,8 @@
         </div>
 
         <div class="card shadow-sm mb-4">
-            <div class="card-header">Contact & Statutory</div>
+            <div class="card-header">Payroll</div>
             <div class="card-body row g-3">
-                <div class="col-md-4"><div class="text-muted small">Email</div><div>{{ employee.email|default:"-" }}</div></div>
-                <div class="col-md-4"><div class="text-muted small">Mobile</div><div>{{ employee.mobile|default:"-" }}</div></div>
-                <div class="col-md-4"><div class="text-muted small">Alternate Mobile</div><div>{{ employee.alternate_mobile|default:"-" }}</div></div>
-                <div class="col-md-3"><div class="text-muted small">Aadhaar</div><div>{{ employee.aadhaar|default:"-" }}</div></div>
-                <div class="col-md-3"><div class="text-muted small">PAN</div><div>{{ employee.pan|default:"-" }}</div></div>
-                <div class="col-md-3"><div class="text-muted small">UAN</div><div>{{ employee.uan|default:"-" }}</div></div>
-                <div class="col-md-3"><div class="text-muted small">ESIC</div><div>{{ employee.esic_number|default:"-" }}</div></div>
-            </div>
-        </div>
-
-        <div class="card shadow-sm mb-4">
-            <div class="card-header">Bank & Salary</div>
-            <div class="card-body row g-3">
-                <div class="col-md-4"><div class="text-muted small">Bank</div><div>{{ employee.bank_name|default:"-" }}</div></div>
-                <div class="col-md-4"><div class="text-muted small">Account Holder</div><div>{{ employee.account_holder_name|default:"-" }}</div></div>
-                <div class="col-md-4"><div class="text-muted small">Account Number</div><div>{{ employee.bank_account_number|default:"-" }}</div></div>
-                <div class="col-md-4"><div class="text-muted small">IFSC</div><div>{{ employee.ifsc_code|default:"-" }}</div></div>
                 <div class="col-md-4"><div class="text-muted small">Salary Structure</div><div>{{ employee.salary_structure.name|default:"-" }}</div></div>
                 <div class="col-md-4"><div class="text-muted small">Basic Salary</div><div>₹ {{ employee.basic_salary }}</div></div>
                 <div class="col-md-4"><div class="text-muted small">PF Eligible</div><div>{% if employee.pf_eligible %}Yes{% else %}No{% endif %}</div></div>
@@ -71,12 +70,23 @@
             </div>
         </div>
 
-        <div class="card shadow-sm">
-            <div class="card-header">Emergency Contact</div>
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">Statutory</div>
             <div class="card-body row g-3">
-                <div class="col-md-4"><div class="text-muted small">Name</div><div>{{ employee.emergency_contact_name|default:"-" }}</div></div>
-                <div class="col-md-4"><div class="text-muted small">Phone</div><div>{{ employee.emergency_contact_phone|default:"-" }}</div></div>
-                <div class="col-md-4"><div class="text-muted small">Relation</div><div>{{ employee.emergency_contact_relation|default:"-" }}</div></div>
+                <div class="col-md-3"><div class="text-muted small">Aadhaar</div><div>{{ employee.aadhaar|default:"-" }}</div></div>
+                <div class="col-md-3"><div class="text-muted small">PAN</div><div>{{ employee.pan|default:"-" }}</div></div>
+                <div class="col-md-3"><div class="text-muted small">UAN</div><div>{{ employee.uan|default:"-" }}</div></div>
+                <div class="col-md-3"><div class="text-muted small">ESIC</div><div>{{ employee.esic_number|default:"-" }}</div></div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header">Bank</div>
+            <div class="card-body row g-3">
+                <div class="col-md-4"><div class="text-muted small">Bank</div><div>{{ employee.bank_name|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Account Holder</div><div>{{ employee.account_holder_name|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Account Number</div><div>{{ employee.bank_account_number|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">IFSC</div><div>{{ employee.ifsc_code|default:"-" }}</div></div>
             </div>
         </div>
     </div>
@@ -91,7 +101,7 @@
                             <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
                                 <div>
                                     <div class="fw-semibold">{{ document.title|default:document.get_document_type_display }}</div>
-                                    <div class="small text-muted">{{ document.uploaded_at|date:"d M Y" }}</div>
+                                    <div class="small text-muted">{{ document.get_document_type_display }} · {{ document.uploaded_at|date:"d M Y" }}</div>
                                 </div>
                                 <a href="{{ document.file.url }}" class="btn btn-sm btn-outline-primary" target="_blank">View</a>
                             </li>

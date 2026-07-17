@@ -7,12 +7,12 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h2>Import Employees</h2>
-        <p class="text-muted mb-0">Bulk upload employees from an Excel file for a selected company.</p>
+        <p class="text-muted mb-0">Bulk upload employees from an Excel file for a selected company. Invalid rows are skipped with an error report.</p>
     </div>
     <a href="{% url 'employees:employee_list' %}" class="btn btn-outline-secondary">Back to Employees</a>
 </div>
 
-<div class="card shadow-sm">
+<div class="card shadow-sm mb-4">
     <div class="card-body">
         <p class="mb-3">
             Download the
@@ -42,5 +42,30 @@
         </form>
     </div>
 </div>
+
+{% if import_errors %}
+<div class="card shadow-sm border-warning">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Import issues ({{ import_errors|length }})</span>
+        <form method="post" class="m-0">
+            {% csrf_token %}
+            <input type="hidden" name="download_errors" value="1">
+            <button type="submit" class="btn btn-sm btn-outline-dark">Download error log</button>
+        </form>
+    </div>
+    <div class="card-body">
+        {% if created_count %}<p class="text-success mb-2">{{ created_count }} employee(s) created.</p>{% endif %}
+        {% if skipped_count %}<p class="text-muted mb-2">{{ skipped_count }} duplicate(s) skipped.</p>{% endif %}
+        <ul class="mb-0">
+            {% for error in import_errors|slice:":20" %}
+                <li class="small">{{ error }}</li>
+            {% endfor %}
+        </ul>
+        {% if import_errors|length > 20 %}
+            <p class="text-muted small mt-2 mb-0">Showing first 20 errors. Download the full log for all rows.</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 
 {% endblock %}

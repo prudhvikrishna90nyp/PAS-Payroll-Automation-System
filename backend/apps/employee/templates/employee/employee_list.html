@@ -11,8 +11,20 @@
     </div>
     <div class="d-flex gap-2">
         <a href="{% url 'employees:employee_import' %}" class="btn btn-outline-secondary">Import</a>
-        <a href="{% url 'employees:employee_export' %}{% if company_filter %}?company={{ company_filter }}{% endif %}" class="btn btn-outline-secondary">Export</a>
+        <a href="{% url 'employees:employee_export' %}{% if querystring %}?{{ querystring }}{% endif %}" class="btn btn-outline-secondary">Export Excel</a>
+        <a href="{% url 'employees:employee_export_pdf' %}{% if querystring %}?{{ querystring }}{% endif %}" class="btn btn-outline-dark">Export PDF</a>
         <a href="{% url 'employees:employee_add' %}" class="btn btn-primary">Add Employee</a>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body py-3">
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-sm btn-outline-dark" href="{% url 'employees:employee_list' %}?status=active">Register</a>
+            <a class="btn btn-sm btn-outline-dark" href="{% url 'employees:employee_list' %}?pf_eligible=yes&status=active">PF Eligible</a>
+            <a class="btn btn-sm btn-outline-dark" href="{% url 'employees:employee_list' %}?esi_eligible=yes&status=active">ESI Eligible</a>
+            <a class="btn btn-sm btn-outline-secondary" href="{% url 'employees:employee_list' %}">Clear filters</a>
+        </div>
     </div>
 </div>
 
@@ -21,7 +33,7 @@
         <form method="get" class="row g-3">
             <div class="col-md-4">
                 <label class="form-label">Search</label>
-                <input type="text" name="q" value="{{ search_query }}" class="form-control" placeholder="Code, name, mobile, PAN, Aadhaar">
+                <input type="text" name="q" value="{{ search_query }}" class="form-control" placeholder="Code, name, mobile, PAN, Aadhaar, UAN">
             </div>
             <div class="col-md-2">
                 <label class="form-label">Client</label>
@@ -42,6 +54,15 @@
                 </select>
             </div>
             <div class="col-md-2">
+                <label class="form-label">Branch</label>
+                <select name="branch" class="form-select">
+                    <option value="">All</option>
+                    {% for branch in branches %}
+                        <option value="{{ branch.pk }}" {% if branch_filter == branch.pk|stringformat:"s" %}selected{% endif %}>{{ branch.branch_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
                 <label class="form-label">Department</label>
                 <select name="department" class="form-select">
                     <option value="">All</option>
@@ -51,7 +72,16 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <label class="form-label">Status</label>
+                <label class="form-label">Designation</label>
+                <select name="designation" class="form-select">
+                    <option value="">All</option>
+                    {% for designation in designations %}
+                        <option value="{{ designation.pk }}" {% if designation_filter == designation.pk|stringformat:"s" %}selected{% endif %}>{{ designation.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Active / Archived</label>
                 <select name="status" class="form-select">
                     <option value="">All</option>
                     <option value="active" {% if status_filter == "active" %}selected{% endif %}>Active</option>
@@ -59,7 +89,16 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <label class="form-label">Employment</label>
+                <label class="form-label">Employment Type</label>
+                <select name="employment_type" class="form-select">
+                    <option value="">All</option>
+                    {% for value, label in employment_types %}
+                        <option value="{{ value }}" {% if employment_type_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Employment Status</label>
                 <select name="employment_status" class="form-select">
                     <option value="">All</option>
                     {% for value, label in employment_statuses %}
@@ -100,6 +139,7 @@
                     <th>Company</th>
                     <th>Department</th>
                     <th>Designation</th>
+                    <th>Type</th>
                     <th>Status</th>
                     <th class="text-end">Actions</th>
                 </tr>
@@ -122,6 +162,7 @@
                     <td>{{ employee.company.company_name }}</td>
                     <td>{{ employee.department.name|default:"-" }}</td>
                     <td>{{ employee.designation.name|default:"-" }}</td>
+                    <td>{{ employee.get_employment_type_display }}</td>
                     <td>
                         {% if employee.is_active %}<span class="badge text-bg-success">{{ employee.get_employment_status_display }}</span>
                         {% else %}<span class="badge text-bg-secondary">Archived</span>{% endif %}
@@ -141,7 +182,7 @@
                     </td>
                 </tr>
             {% empty %}
-                <tr><td colspan="7" class="text-center py-5 text-muted">No employees were found.</td></tr>
+                <tr><td colspan="8" class="text-center py-5 text-muted">No employees were found.</td></tr>
             {% endfor %}
             </tbody>
         </table>
@@ -150,9 +191,9 @@
 
 {% if is_paginated %}
 <nav class="mt-4"><ul class="pagination justify-content-center">
-    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ search_query|urlencode }}&company={{ company_filter }}&status={{ status_filter }}">Previous</a></li>{% endif %}
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ querystring }}">Previous</a></li>{% endif %}
     <li class="page-item active"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
-    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ search_query|urlencode }}&company={{ company_filter }}&status={{ status_filter }}">Next</a></li>{% endif %}
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ querystring }}">Next</a></li>{% endif %}
 </ul></nav>
 {% endif %}
 
