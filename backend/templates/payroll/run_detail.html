@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Payroll Run #{{ run.run_number }}{% endblock %}
+{% block page_heading %}Run #{{ run.run_number }} — {{ run.company.company_name }}{% endblock %}
+{% block page_subtitle %}{{ run.period }} · {{ run.get_status_display }}{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body row g-3">
+        <div class="col-md-3"><strong>Period</strong><br><a href="{% url 'payroll:period_detail' run.period_id %}">{{ run.period.month|stringformat:"02d" }}/{{ run.period.year }}</a></div>
+        <div class="col-md-3"><strong>Status</strong><br>{{ run.get_status_display }}</div>
+        <div class="col-md-3"><strong>Created by</strong><br>{{ run.created_by|default:"—" }}</div>
+        <div class="col-md-3"><strong>Created</strong><br>{{ run.created_at }}</div>
+        {% if run.notes %}
+        <div class="col-12"><strong>Notes</strong><br>{{ run.notes }}</div>
+        {% endif %}
+    </div>
+</div>
+
+<p class="text-muted">Employee results and calculation will appear here in Sprint 8.2.</p>
+<a href="{% url 'payroll:run_list' %}" class="btn btn-outline-secondary">Back to runs</a>
+{% endblock %}

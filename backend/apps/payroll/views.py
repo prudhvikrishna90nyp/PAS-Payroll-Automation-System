@@ -20,6 +20,8 @@ from apps.employee.models import Employee
 from .filters import assignment_list_queryset, component_list_queryset, structure_list_queryset
 from .forms import (
     EmployeeSalaryAssignmentForm,
+    PayrollPeriodForm,
+    PayrollRunForm,
     SalaryComponentForm,
     SalaryStructureForm,
     SalaryStructureLineFormSet,
@@ -30,6 +32,9 @@ from .models import (
     ComponentType,
     EmployeeSalaryAssignment,
     PayPeriod,
+    PayrollPeriod,
+    PayrollPeriodStatus,
+    PayrollRun,
     Payslip,
     SalaryComponent,
     SalaryStructure,
@@ -37,9 +42,12 @@ from .models import (
 from .permissions import (
     ADD_ASSIGNMENT,
     ADD_COMPONENT,
+    ADD_PERIOD,
+    ADD_RUN,
     ADD_STRUCTURE,
     CHANGE_ASSIGNMENT,
     CHANGE_COMPONENT,
+    CHANGE_PERIOD,
     CHANGE_STRUCTURE,
     DELETE_ASSIGNMENT,
     DELETE_COMPONENT,
@@ -50,10 +58,13 @@ from .permissions import (
     VIEW_ASSIGNMENT,
     VIEW_COMPONENT,
     VIEW_PAYSLIP,
+    VIEW_PERIOD,
+    VIEW_RUN,
     VIEW_STRUCTURE,
 )
 from .reports import REPORT_BUILDERS
 from .services import generate_payslips_for_period
+from .services.payroll_engine import close_period, create_run, open_period
 from .services.salary_calculator import calculate_assignment_components, calculate_structure_components
 from .services.validation import validate_structure
 
@@ -572,3 +583,143 @@ class PayrollReportDownloadView(PayrollLoginPermissionMixin, View):
         if needed and not request.user.has_perm(needed) and not request.user.has_perm(VIEW_STRUCTURE):
             raise PermissionDenied
         return builder(request.GET)
+
+
+# ---- Payroll Periods (Sprint 8.1) ----
+
+class PeriodListView(PayrollLoginPermissionMixin, PayrollNavMixin, ListView):
+    model = PayrollPeriod
+    template_name = 'payroll/period_list.html'
+    context_object_name = 'periods'
+    paginate_by = 20
+    permission_required = VIEW_PERIOD
+
+    def get_queryset(self):
+        qs = PayrollPeriod.objects.select_related('company')
+        company = self.request.GET.get('company')
+        status = self.request.GET.get('status')
+        if company:
+            qs = qs.filter(company_id=company)
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['companies'] = Company.objects.filter(is_active=True).order_by('company_name')
+        context['company_filter'] = self.request.GET.get('company', '')
+        context['status_filter'] = self.request.GET.get('status', '')
+        context['status_choices'] = PayrollPeriodStatus.choices
+        return context
+
+
+class PeriodDetailView(PayrollLoginPermissionMixin, PayrollNavMixin, DetailView):
+    model = PayrollPeriod
+    template_name = 'payroll/period_detail.html'
+    context_object_name = 'period'
+    permission_required = VIEW_PERIOD
+
+    def get_queryset(self):
+        return PayrollPeriod.objects.select_related('company').prefetch_related('runs')
+
+
+class PeriodCreateView(PayrollLoginPermissionMixin, PayrollNavMixin, CreateView):
+    model = PayrollPeriod
+    form_class = PayrollPeriodForm
+    template_name = 'payroll/period_form.html'
+    success_url = reverse_lazy('payroll:period_list')
+    permission_required = ADD_PERIOD
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, 'Payroll period created.')
+        return super().form_valid(form)
+
+
+class PeriodCloseView(PayrollLoginPermissionMixin, View):
+    permission_required = CHANGE_PERIOD
+
+    def post(self, request, pk):
+        period = get_object_or_404(PayrollPeriod, pk=pk)
+        try:
+            close_period(period, user=request.user)
+            messages.success(request, f'Period {period} closed.')
+        except Exception as exc:
+            messages.error(request, str(exc))
+        return redirect('payroll:period_detail', pk=pk)
+
+
+class PeriodOpenView(PayrollLoginPermissionMixin, View):
+    permission_required = CHANGE_PERIOD
+
+    def post(self, request, pk):
+        period = get_object_or_404(PayrollPeriod, pk=pk)
+        open_period(period, user=request.user)
+        messages.success(request, f'Period {period} opened.')
+        return redirect('payroll:period_detail', pk=pk)
+
+
+# ---- Payroll Runs (Sprint 8.1) ----
+
+class RunListView(PayrollLoginPermissionMixin, PayrollNavMixin, ListView):
+    model = PayrollRun
+    template_name = 'payroll/run_list.html'
+    context_object_name = 'runs'
+    paginate_by = 20
+    permission_required = VIEW_RUN
+
+    def get_queryset(self):
+        qs = PayrollRun.objects.select_related('company', 'period', 'created_by')
+        company = self.request.GET.get('company')
+        period = self.request.GET.get('period')
+        if company:
+            qs = qs.filter(company_id=company)
+        if period:
+            qs = qs.filter(period_id=period)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['companies'] = Company.objects.filter(is_active=True).order_by('company_name')
+        context['periods'] = PayrollPeriod.objects.select_related('company').order_by(
+            '-year', '-month'
+        )[:50]
+        context['company_filter'] = self.request.GET.get('company', '')
+        context['period_filter'] = self.request.GET.get('period', '')
+        return context
+
+
+class RunDetailView(PayrollLoginPermissionMixin, PayrollNavMixin, DetailView):
+    model = PayrollRun
+    template_name = 'payroll/run_detail.html'
+    context_object_name = 'run'
+    permission_required = VIEW_RUN
+
+    def get_queryset(self):
+        return PayrollRun.objects.select_related('company', 'period', 'created_by')
+
+
+class RunCreateView(PayrollLoginPermissionMixin, PayrollNavMixin, CreateView):
+    model = PayrollRun
+    form_class = PayrollRunForm
+    template_name = 'payroll/run_form.html'
+    permission_required = ADD_RUN
+
+    def form_valid(self, form):
+        period = form.cleaned_data['period']
+        notes = form.cleaned_data.get('notes') or ''
+        try:
+            run = create_run(period=period, user=self.request.user, notes=notes)
+        except Exception as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
+        messages.success(self.request, f'Draft payroll run #{run.run_number} created.')
+        return redirect('payroll:run_detail', pk=run.pk)
+
+    def get_initial(self):
+        initial = super().get_initial()
+        period_id = self.request.GET.get('period')
+        if period_id:
+            initial['period'] = period_id
+        return initial

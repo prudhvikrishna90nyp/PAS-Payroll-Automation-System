@@ -3,6 +3,11 @@ from django.contrib import admin
 from .models import (
     EmployeeSalaryAssignment,
     PayPeriod,
+    PayrollAuditLog,
+    PayrollPeriod,
+    PayrollResult,
+    PayrollResultComponent,
+    PayrollRun,
     Payslip,
     PayslipItem,
     SalaryComponent,
@@ -103,3 +108,98 @@ class EmployeeSalaryAssignmentAdmin(admin.ModelAdmin):
     )
     autocomplete_fields = ('employee', 'salary_structure')
     date_hierarchy = 'effective_from'
+
+
+class PayrollResultComponentInline(admin.TabularInline):
+    model = PayrollResultComponent
+    extra = 0
+
+
+class PayrollResultInline(admin.TabularInline):
+    model = PayrollResult
+    extra = 0
+    show_change_link = True
+    fields = (
+        'employee',
+        'present_days',
+        'lop_days',
+        'gross',
+        'total_deductions',
+        'net_salary',
+    )
+    autocomplete_fields = ('employee',)
+
+
+@admin.register(PayrollPeriod)
+class PayrollPeriodAdmin(admin.ModelAdmin):
+    list_display = (
+        'company',
+        'month',
+        'year',
+        'start_date',
+        'end_date',
+        'status',
+        'created_at',
+    )
+    list_filter = ('status', 'year', 'company')
+    search_fields = ('company__company_name',)
+    date_hierarchy = 'start_date'
+
+
+@admin.register(PayrollRun)
+class PayrollRunAdmin(admin.ModelAdmin):
+    list_display = (
+        'company',
+        'period',
+        'run_number',
+        'status',
+        'created_by',
+        'created_at',
+    )
+    list_filter = ('status', 'company', 'period__year')
+    search_fields = ('company__company_name', 'notes')
+    autocomplete_fields = ('period', 'company', 'created_by')
+    inlines = [PayrollResultInline]
+
+
+@admin.register(PayrollResult)
+class PayrollResultAdmin(admin.ModelAdmin):
+    list_display = (
+        'employee',
+        'run',
+        'present_days',
+        'lop_days',
+        'gross',
+        'total_deductions',
+        'net_salary',
+    )
+    list_filter = ('run__company', 'run__period')
+    search_fields = (
+        'employee__employee_code',
+        'employee__first_name',
+        'employee__last_name',
+    )
+    autocomplete_fields = ('run', 'employee')
+    inlines = [PayrollResultComponentInline]
+
+
+@admin.register(PayrollResultComponent)
+class PayrollResultComponentAdmin(admin.ModelAdmin):
+    list_display = (
+        'result',
+        'component_code',
+        'component_name',
+        'component_type',
+        'amount',
+    )
+    list_filter = ('component_type',)
+    search_fields = ('component_code', 'component_name')
+
+
+@admin.register(PayrollAuditLog)
+class PayrollAuditLogAdmin(admin.ModelAdmin):
+    list_display = ('action', 'period', 'run', 'user', 'timestamp')
+    list_filter = ('action',)
+    search_fields = ('action', 'user__username')
+    readonly_fields = ('period', 'run', 'action', 'user', 'timestamp', 'details')
+    date_hierarchy = 'timestamp'

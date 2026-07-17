@@ -11,6 +11,11 @@ ROLE_GROUPS = {
         'employeesalaryassignment': ('add', 'change', 'delete', 'view', 'export'),
         'payslip': ('add', 'change', 'delete', 'view'),
         'payperiod': ('add', 'change', 'delete', 'view'),
+        'payrollperiod': ('add', 'change', 'delete', 'view'),
+        'payrollrun': ('add', 'change', 'delete', 'view'),
+        'payrollresult': ('add', 'change', 'delete', 'view'),
+        'payrollresultcomponent': ('add', 'change', 'delete', 'view'),
+        'payrollauditlog': ('view',),
     },
     'Admin': {
         'salarycomponent': ('add', 'change', 'delete', 'view', 'export'),
@@ -19,6 +24,11 @@ ROLE_GROUPS = {
         'employeesalaryassignment': ('add', 'change', 'delete', 'view', 'export'),
         'payslip': ('add', 'change', 'delete', 'view'),
         'payperiod': ('add', 'change', 'delete', 'view'),
+        'payrollperiod': ('add', 'change', 'delete', 'view'),
+        'payrollrun': ('add', 'change', 'delete', 'view'),
+        'payrollresult': ('view',),
+        'payrollresultcomponent': ('view',),
+        'payrollauditlog': ('view',),
     },
     'HR': {
         'salarycomponent': ('view',),
@@ -27,6 +37,9 @@ ROLE_GROUPS = {
         'employeesalaryassignment': ('add', 'change', 'view'),
         'payslip': ('view',),
         'payperiod': ('view',),
+        'payrollperiod': ('view',),
+        'payrollrun': ('view',),
+        'payrollresult': ('view',),
     },
     'Payroll': {
         'salarycomponent': ('add', 'change', 'view', 'export'),
@@ -35,6 +48,11 @@ ROLE_GROUPS = {
         'employeesalaryassignment': ('add', 'change', 'view', 'export'),
         'payslip': ('add', 'change', 'view'),
         'payperiod': ('add', 'change', 'view'),
+        'payrollperiod': ('add', 'change', 'view'),
+        'payrollrun': ('add', 'change', 'view'),
+        'payrollresult': ('view',),
+        'payrollresultcomponent': ('view',),
+        'payrollauditlog': ('view',),
     },
     'Viewer': {
         'salarycomponent': ('view',),
@@ -43,6 +61,9 @@ ROLE_GROUPS = {
         'employeesalaryassignment': ('view',),
         'payslip': ('view',),
         'payperiod': ('view',),
+        'payrollperiod': ('view',),
+        'payrollrun': ('view',),
+        'payrollresult': ('view',),
     },
 }
 
@@ -66,12 +87,25 @@ EXPORT_ASSIGNMENT = 'payroll.export_employeesalaryassignment'
 
 VIEW_PAYSLIP = 'payroll.view_payslip'
 
+VIEW_PERIOD = 'payroll.view_payrollperiod'
+ADD_PERIOD = 'payroll.add_payrollperiod'
+CHANGE_PERIOD = 'payroll.change_payrollperiod'
+
+VIEW_RUN = 'payroll.view_payrollrun'
+ADD_RUN = 'payroll.add_payrollrun'
+CHANGE_RUN = 'payroll.change_payrollrun'
+
 
 def seed_role_groups():
     """Merge payroll permissions into existing PAS role groups."""
     from .models import (
         EmployeeSalaryAssignment,
         PayPeriod,
+        PayrollAuditLog,
+        PayrollPeriod,
+        PayrollResult,
+        PayrollResultComponent,
+        PayrollRun,
         Payslip,
         SalaryComponent,
         SalaryStructure,
@@ -85,6 +119,11 @@ def seed_role_groups():
         'employeesalaryassignment': EmployeeSalaryAssignment,
         'payslip': Payslip,
         'payperiod': PayPeriod,
+        'payrollperiod': PayrollPeriod,
+        'payrollrun': PayrollRun,
+        'payrollresult': PayrollResult,
+        'payrollresultcomponent': PayrollResultComponent,
+        'payrollauditlog': PayrollAuditLog,
     }
 
     for group_name, model_perms in ROLE_GROUPS.items():

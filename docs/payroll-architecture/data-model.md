@@ -35,6 +35,15 @@ erDiagram
   PayPeriod ||--o{ Payslip : contains
   Employee ||--o{ Payslip : receives
   Payslip ||--o{ PayslipItem : lines
+
+  Company ||--o{ PayrollPeriod : calendar
+  PayrollPeriod ||--o{ PayrollRun : versions
+  Company ||--o{ PayrollRun : processes
+  PayrollRun ||--o{ PayrollResult : snapshots
+  Employee ||--o{ PayrollResult : receives
+  PayrollResult ||--o{ PayrollResultComponent : lines
+  PayrollPeriod ||--o{ PayrollAuditLog : audits
+  PayrollRun ||--o{ PayrollAuditLog : audits
 ```
 
 ### Org & people
@@ -62,10 +71,20 @@ erDiagram
 | `SalaryComponent` | Company | earning / deduction / employer_contribution; fixed / % / formula |
 | `SalaryStructure` + `SalaryStructureLine` | Company | Line can override calc type, value, %, formula |
 | `EmployeeSalaryAssignment` | Employee | `effective_from` / `effective_to`; closes prior open assignment |
-| `PayPeriod` | Global (year+month) | `is_closed` flag |
+| `PayPeriod` | Global (year+month) | **Legacy** `is_closed` flag; used by existing payslip generation |
 | `Payslip` / `PayslipItem` | Employee + period | Status `draft` / `finalized`; unique `(employee, pay_period)` |
 
-**Legacy:** `employee.SalaryStructure` (basic/HRA%/transport template) remains for older paths; Sprint 7 masters in `apps.payroll` are the component engine.
+### Payroll engine (v0.8.1 foundation)
+
+| Entity | Scope | Notes |
+|--------|-------|-------|
+| `PayrollPeriod` | Company + month + year | Open/Closed; unique `(company, month, year)`; overlapping date ranges rejected |
+| `PayrollRun` | Period + company | `run_number` version; status Draft / Calculated / Reviewed / Approved / Locked (Draft used in 8.1) |
+| `PayrollResult` | Run + employee | Attendance + pay snapshot fields; immutable intent when run Locked (enforced in 8.3) |
+| `PayrollResultComponent` | Result | Component code/name/type/amount + `calculation_detail` JSON |
+| `PayrollAuditLog` | Period and/or run | Action, user, timestamp, details JSON |
+
+**Legacy:** `employee.SalaryStructure` (basic/HRA%/transport template) remains for older paths; Sprint 7 masters in `apps.payroll` are the component engine. Prefer `PayrollPeriod`/`PayrollRun` over `PayPeriod` going forward (**Implemented v0.8.1 foundation**).
 
 ### Related
 

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Create Payroll Run{% endblock %}
+{% block page_heading %}Create Payroll Run{% endblock %}
+{% block page_subtitle %}Creates a Draft run for an open company period{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-body row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Open period</label>
+                {{ form.period }}
+                {% for e in form.period.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-md-12">
+                <label class="form-label">Notes</label>
+                {{ form.notes }}
+            </div>
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Create Draft Run</button>
+    <a href="{% url 'payroll:run_list' %}" class="btn btn-outline-secondary">Cancel</a>
+</form>
+{% endblock %}

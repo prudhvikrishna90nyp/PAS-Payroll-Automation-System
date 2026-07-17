@@ -23,6 +23,12 @@ flowchart LR
     C3 --> C4[Net pay]
   end
 
+  subgraph engine ["Payroll engine (v0.8.1)"]
+    P1[PayrollPeriod Open/Closed] --> P2[PayrollRun Draft…]
+    P2 --> P3["PayrollResult + Components (planned calc)"]
+    P2 --> P4[PayrollAuditLog]
+  end
+
   subgraph output ["Output"]
     O1[Payslip draft] --> O2[PDF / Excel]
     O3["Bank advice (planned)"]
@@ -32,7 +38,8 @@ flowchart LR
   S3 --> C2
   C4 --> O1
   O1 -.-> O3
-  A3 -.->|period processed| P1["PayPeriod close (planned)"]
+  A3 -.->|period processed| P1
+  P3 -.->|wire later| O1
 ```
 
 ### Step summary
@@ -47,7 +54,10 @@ flowchart LR
 | 6. Statutory | PF / ESI / PT / TDS helpers in `statutory.py` (stubs / simplified rates) | **Implemented (stubs)** — full engines **Planned (v0.8+)** |
 | 7. Net → payslip | `generate_payslip` writes `Payslip` + `PayslipItem`; skips if `finalized` | **Implemented (v0.7)** |
 | 8. Bank advice | Employee bank fields exist; dedicated NEFT/advice export | **Planned (v0.8+)** |
-| 9. Pay period close | `PayPeriod.is_closed` exists; not enforced in generation UI | **Partial** — immutability goals **Planned (Sprint 8 / v0.8+)** |
+| 9. Payroll period / run foundation | `PayrollPeriod` (Open/Closed, overlap checks), `PayrollRun` (Draft+status scaffold), `PayrollResult` / `PayrollResultComponent`, `PayrollAuditLog`; services under `apps/payroll/services/` | **Implemented (v0.8.1 foundation)** |
+| 10. Run calculation / lock | Attendance-linked calc, approval, immutable lock | **Planned (Sprint 8.2–8.3)** |
+
+**Legacy:** `PayPeriod` / `Payslip` remain for existing payslip generation. Prefer `PayrollPeriod` / `PayrollRun` as source of truth going forward; payslip wiring is deferred.
 
 **Note:** Payslip generation today does **not** yet prorate earnings from `AttendanceMonthlySummary` (LOP/OT). Summaries are the payroll feed for that work; wiring is **Planned (v0.8+)**.
 

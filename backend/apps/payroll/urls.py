@@ -27,11 +27,21 @@ urlpatterns = [
     path('assignments/<int:pk>/edit/', views.AssignmentUpdateView.as_view(), name='assignment_edit'),
     path('assignments/<int:pk>/archive/', views.AssignmentArchiveView.as_view(), name='assignment_archive'),
 
+    # Payroll periods & runs (Sprint 8.1)
+    path('periods/', views.PeriodListView.as_view(), name='period_list'),
+    path('periods/add/', views.PeriodCreateView.as_view(), name='period_add'),
+    path('periods/<int:pk>/', views.PeriodDetailView.as_view(), name='period_detail'),
+    path('periods/<int:pk>/close/', views.PeriodCloseView.as_view(), name='period_close'),
+    path('periods/<int:pk>/open/', views.PeriodOpenView.as_view(), name='period_open'),
+    path('runs/', views.RunListView.as_view(), name='run_list'),
+    path('runs/add/', views.RunCreateView.as_view(), name='run_add'),
+    path('runs/<int:pk>/', views.RunDetailView.as_view(), name='run_detail'),
+
     # Reports
     path('reports/', views.PayrollReportIndexView.as_view(), name='report_index'),
     path('reports/<str:report_type>/', views.PayrollReportDownloadView.as_view(), name='report_download'),
 
-    # Payslips
+    # Payslips (legacy PayPeriod)
     path('payslips/', views.payslip_list, name='payslip_list'),
     path('payslips/<int:pk>/', views.payslip_detail, name='payslip_detail'),
     path('payslips/<int:pk>/pdf/', views.payslip_pdf, name='payslip_pdf'),

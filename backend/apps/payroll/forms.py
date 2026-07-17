@@ -9,12 +9,20 @@ from apps.employee.models import Employee
 
 from .models import (
     EmployeeSalaryAssignment,
+    PayrollPeriod,
+    PayrollPeriodStatus,
+    PayrollRun,
     SalaryComponent,
     SalaryStructure,
     SalaryStructureLine,
 )
 from .seed import seed_standard_components
-from .services.validation import validate_assignment, validate_component, validate_structure
+from .services.validation import (
+    validate_assignment,
+    validate_component,
+    validate_payroll_period,
+    validate_structure,
+)
 
 
 class BootstrapModelForm(forms.ModelForm):
@@ -194,3 +202,56 @@ class SeedComponentsForm(forms.Form):
 
     def save(self, user=None):
         return seed_standard_components(self.cleaned_data['company'], user=user)
+
+
+class PayrollPeriodForm(BootstrapModelForm):
+    class Meta:
+        model = PayrollPeriod
+        fields = ['company', 'month', 'year', 'start_date', 'end_date', 'status']
+        widgets = {
+            'start_date': forms.DateInput(attrs={'type': 'date'}),
+            'end_date': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['company'].queryset = Company.objects.filter(is_active=True).order_by(
+            'company_name'
+        )
+        if not self.instance.pk:
+            self.fields['status'].initial = PayrollPeriodStatus.OPEN
+
+    def clean(self):
+        cleaned = super().clean()
+        instance = PayrollPeriod(
+            pk=self.instance.pk,
+            company=cleaned.get('company'),
+            month=cleaned.get('month'),
+            year=cleaned.get('year'),
+            start_date=cleaned.get('start_date'),
+            end_date=cleaned.get('end_date'),
+            status=cleaned.get('status') or PayrollPeriodStatus.OPEN,
+        )
+        errors = validate_payroll_period(instance)
+        if errors:
+            raise DjangoValidationError(errors)
+        return cleaned
+
+
+class PayrollRunForm(BootstrapModelForm):
+    class Meta:
+        model = PayrollRun
+        fields = ['period', 'notes']
+        widgets = {
+            'notes': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['period'].queryset = (
+            PayrollPeriod.objects
+            .filter(status=PayrollPeriodStatus.OPEN)
+            .select_related('company')
+            .order_by('-year', '-month')
+        )
+        self.fields['notes'].required = False

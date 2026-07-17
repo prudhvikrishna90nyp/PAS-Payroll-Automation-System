@@ -1,6 +1,8 @@
 <div class="card shadow-sm mb-3">
     <div class="card-body py-3">
         <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-sm {% if 'period' in request.resolver_match.url_name %}btn-primary{% else %}btn-outline-dark{% endif %}" href="{% url 'payroll:period_list' %}">Periods</a>
+            <a class="btn btn-sm {% if 'run' in request.resolver_match.url_name %}btn-primary{% else %}btn-outline-dark{% endif %}" href="{% url 'payroll:run_list' %}">Runs</a>
             <a class="btn btn-sm {% if 'component' in request.resolver_match.url_name %}btn-primary{% else %}btn-outline-dark{% endif %}" href="{% url 'payroll:component_list' %}">Components</a>
             <a class="btn btn-sm {% if 'structure' in request.resolver_match.url_name %}btn-primary{% else %}btn-outline-dark{% endif %}" href="{% url 'payroll:structure_list' %}">Structures</a>
             <a class="btn btn-sm {% if 'assignment' in request.resolver_match.url_name %}btn-primary{% else %}btn-outline-dark{% endif %}" href="{% url 'payroll:assignment_list' %}">Assignments</a>

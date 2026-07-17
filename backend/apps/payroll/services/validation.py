@@ -150,3 +150,60 @@ def validate_assignment(assignment) -> list[str]:
 def raise_if_errors(errors: list[str]):
     if errors:
         raise SalaryValidationError(errors)
+
+
+def validate_payroll_period(period) -> list[str]:
+    """Validate PayrollPeriod uniqueness and non-overlapping date ranges."""
+    from apps.payroll.models import PayrollPeriod
+
+    errors: list[str] = []
+    if period.month is not None and (period.month < 1 or period.month > 12):
+        errors.append('Month must be between 1 and 12.')
+    if period.start_date and period.end_date and period.start_date > period.end_date:
+        errors.append('End date must be on or after start date.')
+
+    if period.company_id and period.month and period.year:
+        qs = PayrollPeriod.objects.filter(
+            company_id=period.company_id,
+            month=period.month,
+            year=period.year,
+        )
+        if period.pk:
+            qs = qs.exclude(pk=period.pk)
+        if qs.exists():
+            errors.append(
+                f'A payroll period for {period.month:02d}/{period.year} '
+                f'already exists for this company.'
+            )
+
+    if period.company_id and period.start_date and period.end_date:
+        overlap = (
+            PayrollPeriod.objects
+            .filter(company_id=period.company_id)
+            .filter(start_date__lte=period.end_date, end_date__gte=period.start_date)
+        )
+        if period.pk:
+            overlap = overlap.exclude(pk=period.pk)
+        if overlap.exists():
+            other = overlap.first()
+            errors.append(
+                f'Date range overlaps existing period '
+                f'{other.month:02d}/{other.year} '
+                f'({other.start_date} – {other.end_date}).'
+            )
+    return errors
+
+
+def validate_run_creation(period, *, company=None) -> list[str]:
+    """Validate that a Draft run may be created for the period."""
+    from apps.payroll.models import PayrollPeriodStatus
+
+    errors: list[str] = []
+    if period is None:
+        return ['Payroll period is required.']
+    company = company or period.company
+    if period.status != PayrollPeriodStatus.OPEN:
+        errors.append('Payroll period must be Open to create a run.')
+    if company and period.company_id != company.pk:
+        errors.append('Company must match the payroll period company.')
+    return errors

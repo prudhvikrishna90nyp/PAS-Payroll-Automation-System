@@ -1,6 +1,6 @@
 # PAS Architecture — Payroll Reference
 
-Production-oriented reference for how PAS runs payroll today (v0.6–v0.7) and what is planned for v0.8+.
+Production-oriented reference for how PAS runs payroll today (v0.6–v0.8.1) and what is planned for later 8.x.
 
 Detailed topics live under [`payroll-architecture/`](payroll-architecture/). The numbered knowledge base entry is a short pointer: [`backend/docs/08_ARCHITECTURE.md`](../backend/docs/08_ARCHITECTURE.md).
 
@@ -17,8 +17,8 @@ Detailed topics live under [`payroll-architecture/`](payroll-architecture/). The
 
 | Tag | Meaning |
 |-----|---------|
-| **Implemented (v0.6–v0.7)** | Present in code on `main` (attendance Sprint 6, salary structures Sprint 7) |
-| **Planned (v0.8+)** | Designed or stubbed; not yet production-complete |
+| **Implemented (v0.6–v0.8.1)** | Present in code (attendance Sprint 6, salary structures Sprint 7, payroll foundation Sprint 8.1) |
+| **Planned (v0.8.2+)** | Designed or stubbed; not yet production-complete |
 
 ---
 
@@ -42,7 +42,8 @@ End-to-end payroll runs from attendance close through bank advice:
 1. Capture and approve daily attendance, then lock the attendance period (**Implemented (v0.6)**).
 2. Assign salary structures with formula-driven components (**Implemented (v0.7)**).
 3. Generate draft payslips via the calculation engines; finalized slips are not overwritten (**Implemented (v0.7)**).
-4. Bank advice export, attendance-linked proration, and pay-period immutability are **Planned (v0.8+)**.
+4. Open/close company `PayrollPeriod`, create Draft `PayrollRun`, audit log, result model scaffold (**Implemented (v0.8.1 foundation)**).
+5. Attendance-linked run calculation, approval/lock immutability, bank advice, and payslip wiring from `PayrollResult` are **Planned (v0.8.2+)**.
 
 See [lifecycle.md](payroll-architecture/lifecycle.md) for the full flowchart and step table.
 
@@ -54,8 +55,8 @@ See [lifecycle.md](payroll-architecture/lifecycle.md) for the full flowchart and
 |------|----------|
 | Attendance models / lock | `apps/attendance/models.py`, `apps/attendance/services.py` |
 | Payroll models | `apps/payroll/models.py` |
-| Formula / salary / payslip / statutory | `apps/payroll/services/*.py` |
-| Payroll HTML routes | `apps/payroll/urls.py` → [04_API.md](../backend/docs/04_API.md) |
+| Formula / salary / payslip / statutory / engine | `apps/payroll/services/*.py` (`payroll_engine`, loaders, earnings/deductions stubs) |
+| Payroll HTML routes | `apps/payroll/urls.py` → [04_API.md](../backend/docs/04_API.md) (`/payroll/periods/`, `/payroll/runs/`) |
 | Attendance HTML routes | `apps/attendance/urls.py` |
 | Org hierarchy | `apps/clients`, `apps/company`, `apps/employee` |
 
@@ -67,5 +68,6 @@ See [lifecycle.md](payroll-architecture/lifecycle.md) for the full flowchart and
 |---------|-------|
 | **v0.6** | Attendance management, period lock, monthly summary |
 | **v0.7** | Component salary structures, formula engine, assignment-aware payslips, statutory stubs |
-| **v0.8+** | Attendance-linked payroll, payroll period immutability, bank advice, full statutory engines, payslip approval UX |
+| **v0.8.1** | Payroll foundation: `PayrollPeriod` / `PayrollRun` / `PayrollResult` / audit; open/close; Draft runs |
+| **v0.8.2+** | Attendance-linked calculation, approval/lock, bank advice, full statutory engines, payslip wiring |
 |

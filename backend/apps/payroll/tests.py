@@ -15,6 +15,11 @@ from .models import (
     ComponentType,
     EmployeeSalaryAssignment,
     PayPeriod,
+    PayrollAuditLog,
+    PayrollPeriod,
+    PayrollPeriodStatus,
+    PayrollRun,
+    PayrollRunStatus,
     SalaryComponent,
     SalaryStructure,
     SalaryStructureLine,
@@ -27,9 +32,15 @@ from .services.formula_engine import (
     evaluate_formula,
     extract_references,
 )
+from .services.payroll_engine import close_period, create_period, create_run, open_period
 from .services.payslip_generator import calculate_payslip_amounts, generate_payslip
 from .services.salary_calculator import calculate_structure_components
-from .services.validation import validate_component, validate_structure
+from .services.validation import (
+    SalaryValidationError,
+    validate_component,
+    validate_payroll_period,
+    validate_structure,
+)
 
 
 def _perm(codename):
@@ -65,6 +76,12 @@ class PayrollTestMixin:
             'view_payslip',
             'add_payslip',
             'change_payslip',
+            'view_payrollperiod',
+            'add_payrollperiod',
+            'change_payrollperiod',
+            'view_payrollrun',
+            'add_payrollrun',
+            'change_payrollrun',
         ):
             try:
                 self.user.user_permissions.add(_perm(codename))
@@ -429,3 +446,145 @@ class NegativeSalaryValidationTests(PayrollTestMixin, TestCase):
         )
         with self.assertRaises(FormulaError):
             calculate_structure_components(structure, Decimal('-1'))
+
+
+class PayrollPeriodFoundationTests(PayrollTestMixin, TestCase):
+    def test_period_unique_company_month_year(self):
+        create_period(
+            company=self.company,
+            month=7,
+            year=2026,
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 31),
+            user=self.user,
+        )
+        with self.assertRaises(SalaryValidationError):
+            create_period(
+                company=self.company,
+                month=7,
+                year=2026,
+                start_date=date(2026, 7, 1),
+                end_date=date(2026, 7, 31),
+                user=self.user,
+            )
+
+    def test_period_overlap_prevention(self):
+        create_period(
+            company=self.company,
+            month=7,
+            year=2026,
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 31),
+            user=self.user,
+        )
+        period = PayrollPeriod(
+            company=self.company,
+            month=8,
+            year=2026,
+            start_date=date(2026, 7, 15),
+            end_date=date(2026, 8, 14),
+        )
+        errors = validate_payroll_period(period)
+        self.assertTrue(any('overlaps' in e.lower() for e in errors))
+
+    def test_open_close_period(self):
+        period = create_period(
+            company=self.company,
+            month=7,
+            year=2026,
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 31),
+            user=self.user,
+        )
+        self.assertEqual(period.status, PayrollPeriodStatus.OPEN)
+        close_period(period, user=self.user)
+        period.refresh_from_db()
+        self.assertEqual(period.status, PayrollPeriodStatus.CLOSED)
+        open_period(period, user=self.user)
+        period.refresh_from_db()
+        self.assertEqual(period.status, PayrollPeriodStatus.OPEN)
+
+    def test_audit_log_on_period_close(self):
+        period = create_period(
+            company=self.company,
+            month=7,
+            year=2026,
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 31),
+            user=self.user,
+        )
+        close_period(period, user=self.user)
+        self.assertTrue(
+            PayrollAuditLog.objects.filter(period=period, action='period_close').exists()
+        )
+
+
+class PayrollRunFoundationTests(PayrollTestMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.period = create_period(
+            company=self.company,
+            month=7,
+            year=2026,
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 31),
+            user=self.user,
+        )
+
+    def test_create_draft_run(self):
+        run = create_run(period=self.period, user=self.user, notes='First draft')
+        self.assertEqual(run.status, PayrollRunStatus.DRAFT)
+        self.assertEqual(run.run_number, 1)
+        self.assertEqual(run.company_id, self.company.pk)
+
+    def test_audit_log_on_run_create(self):
+        run = create_run(period=self.period, user=self.user)
+        self.assertTrue(
+            PayrollAuditLog.objects.filter(run=run, action='run_create').exists()
+        )
+
+    def test_cannot_create_run_on_closed_period(self):
+        close_period(self.period, user=self.user)
+        with self.assertRaises(SalaryValidationError):
+            create_run(period=self.period, user=self.user)
+
+    def test_run_number_increments(self):
+        create_run(period=self.period, user=self.user)
+        run2 = create_run(period=self.period, user=self.user)
+        self.assertEqual(run2.run_number, 2)
+
+
+class PayrollEngineAuthViewTests(PayrollTestMixin, TestCase):
+    def test_period_list_requires_login(self):
+        response = self.client.get(reverse('payroll:period_list'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login', response.url)
+
+    def test_run_list_requires_login(self):
+        response = self.client.get(reverse('payroll:run_list'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login', response.url)
+
+    def test_period_list_ok(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('payroll:period_list'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_run_create_view(self):
+        period = create_period(
+            company=self.company,
+            month=7,
+            year=2026,
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 31),
+            user=self.user,
+        )
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('payroll:run_add'),
+            {'period': period.pk, 'notes': 'UI create'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            PayrollRun.objects.filter(period=period, status=PayrollRunStatus.DRAFT).exists()
+        )
