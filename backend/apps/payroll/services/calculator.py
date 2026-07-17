@@ -70,6 +70,7 @@ class EmployeeCalcResult:
     components: list[dict] = field(default_factory=list)
     calculation_detail: dict = field(default_factory=dict)
     pf_calculation: object | None = None
+    esi_calculation: object | None = None
 
 
 def eligible_employees_for_run(run):
@@ -146,6 +147,7 @@ def calculate_employee(
     assignment=None,
     attendance: AttendanceSnapshot | None = None,
     pf_rule_set=None,
+    esi_rule_set=None,
 ) -> EmployeeCalcResult:
     """Calculate one employee's payroll snapshot inputs (not persisted)."""
     if assignment is None:
@@ -172,6 +174,7 @@ def calculate_employee(
         row for row in build_deduction_rows(full.lines, factor)
         if str(row.get('component_code', '')).upper() not in {
             'EE_PF', 'EE_ESI', 'PT', 'TDS', 'STAT_PF', 'STAT_ESI', 'STAT_PT', 'STAT_TDS',
+            'STAT_ER_ESI',
         }
     ]
 
@@ -190,13 +193,16 @@ def calculate_employee(
         lop_days = attendance.lop_days
         overtime_hours = ZERO
 
-    statutory_rows, pf_calc = statutory_component_rows(
+    statutory_rows, pf_calc, esi_calc = statutory_component_rows(
         employee=employee,
         period=period,
         earning_rows=earning_rows,
         gross=gross_earnings,
         rule_set=pf_rule_set,
+        esi_rule_set=esi_rule_set,
         ncp_days=lop_days,
+        payable_days=payable_days,
+        calendar_days=calendar_days,
     )
 
     structure_deductions = sum((r['amount'] for r in deduction_rows), ZERO).quantize(TWO_PLACES)
@@ -235,6 +241,7 @@ def calculate_employee(
         ctc_snapshot=ctc,
         components=components,
         pf_calculation=pf_calc,
+        esi_calculation=esi_calc,
         calculation_detail={
             'calendar_days': str(calendar_days),
             'eligible_days': str(eligible_days),
@@ -242,8 +249,9 @@ def calculate_employee(
             'proration_factor': str(factor),
             'attendance_source': attendance.source,
             'gross_salary_full': str(assignment.gross_salary),
-            'statutory': 'epf_sprint_9_1',
+            'statutory': 'epf_esi_sprint_9_2',
             'pf': pf_calc.to_detail_dict() if pf_calc else {},
+            'esi': esi_calc.to_detail_dict() if esi_calc else {},
         },
     )
 
@@ -255,6 +263,7 @@ def safe_calculate_employee(
     assignment=None,
     attendance=None,
     pf_rule_set=None,
+    esi_rule_set=None,
 ) -> EmployeeCalcResult:
     """Wrapper that normalizes known failures to EmployeeCalculationError."""
     try:
@@ -264,6 +273,7 @@ def safe_calculate_employee(
             assignment=assignment,
             attendance=attendance,
             pf_rule_set=pf_rule_set,
+            esi_rule_set=esi_rule_set,
         )
     except EmployeeCalculationError:
         raise

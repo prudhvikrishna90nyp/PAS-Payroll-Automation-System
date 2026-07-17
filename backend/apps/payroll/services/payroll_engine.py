@@ -185,13 +185,17 @@ def calculate_run(run: PayrollRun, user=None) -> PayrollRun:
     employees = list(eligible_employees_for_run(run))
     attendance_map = load_attendance_for_run(run, employees=employees)
 
-    # Snapshot PF rule set for the period end date (historical accuracy).
+    # Snapshot PF/ESI rule sets for the period end date (historical accuracy).
+    from apps.compliance.services.esi_rules import get_esi_rule_for_date, seed_default_esi_rule_set
     from apps.compliance.services.pf_rules import get_pf_rule_for_date, seed_default_pf_rule_set
 
     seed_default_pf_rule_set()
+    seed_default_esi_rule_set()
     pf_rule = get_pf_rule_for_date(run.period.end_date)
+    esi_rule = get_esi_rule_for_date(run.period.end_date)
     run.pf_rule_set = pf_rule
-    run.save(update_fields=['pf_rule_set', 'updated_at'])
+    run.esi_rule_set = esi_rule
+    run.save(update_fields=['pf_rule_set', 'esi_rule_set', 'updated_at'])
 
     # Replace prior snapshots for unlocked recalculation.
     clear_run_results(run)
@@ -217,6 +221,7 @@ def calculate_run(run: PayrollRun, user=None) -> PayrollRun:
                 assignment=assignment,
                 attendance=attendance_map.get(employee.pk),
                 pf_rule_set=pf_rule,
+                esi_rule_set=esi_rule,
             )
             snapshot_employee_result(run, calc)
             transaction.savepoint_commit(sid)
@@ -258,6 +263,7 @@ def calculate_run(run: PayrollRun, user=None) -> PayrollRun:
             'error_count': len(errors),
             'errors': errors,
             'pf_rule_set': pf_rule.code,
+            'esi_rule_set': esi_rule.code,
         },
     )
     return run
