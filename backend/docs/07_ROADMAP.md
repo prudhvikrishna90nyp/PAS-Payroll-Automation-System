@@ -34,12 +34,12 @@
 - [x] ECR and ESI return file generation
 - [ ] PF challan and remittance reports (enhance)
 
-## Phase 3b — v1.0 RC Stabilization
+## Phase 3b — v1.0 Release
 
 - [x] **v1.0.0-rc1** — permission hardening, reopen→recalc, release docs, regression suite (2026-07-17)
+- [x] **v1.0.0** GA — first production release (2026-07-17); promoted from RC1 after full suite validation
 - [ ] Bank advice / NEFT export
-- [ ] Production hardening beyond RC (volume N+1, automated backups)
-- [ ] Full **v1.0.0** GA after RC soak
+- [ ] Production hardening beyond GA (volume N+1, automated backups)
 
 ## Phase 4 — Advanced Features
 

@@ -2,6 +2,8 @@
 
 Monorepo for the PAS payroll platform.
 
+**Current release:** [v1.0.0](docs/RELEASE_NOTES_v1.0.0.md) (first production GA)
+
 ## Structure
 
 ```

@@ -1,4 +1,4 @@
-# PAS Production Deployment Checklist (v1.0.0-rc1)
+# PAS Production Deployment Checklist (v1.0.0)
 
 Use with `backend/docs/05_DEPLOYMENT.md`. Complete every item before exposing PAS to production payroll data.
 
@@ -24,13 +24,16 @@ python -m venv venv
 # Windows: venv\Scripts\activate
 source venv/bin/activate
 pip install -r requirements/production.txt
-cp .env.example .env   # edit production values
+cp .env.example .env   # edit production values (SECRET_KEY, DEBUG=False, ALLOWED_HOSTS, DB_*)
 export DJANGO_SETTINGS_MODULE=config.settings.production
-python manage.py migrate
+python manage.py migrate                 # apply schema + seed role groups (post_migrate)
 python manage.py collectstatic --noinput
 python manage.py createsuperuser
 python manage.py check
+python manage.py makemigrations --check  # expect: No changes detected
 ```
+
+**Upgrade / redeploy migrate path:** take a DB backup → set production settings → `migrate` (usually no-op if already current) → `collectstatic` → restart the app. Verify with `check` and a locked-run smoke login.
 
 Docker alternative:
 
