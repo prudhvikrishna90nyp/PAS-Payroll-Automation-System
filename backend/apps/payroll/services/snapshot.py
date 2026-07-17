@@ -1,4 +1,4 @@
-"""Persist payroll result snapshots (Sprint 8.2)."""
+"""Persist payroll result snapshots (Sprint 8.2 / 9.1)."""
 
 from __future__ import annotations
 
@@ -9,10 +9,11 @@ from django.db import transaction
 
 @transaction.atomic
 def snapshot_employee_result(run, calc_result):
-    """Persist ``PayrollResult`` + ``PayrollResultComponent`` for one employee.
+    """Persist ``PayrollResult`` + components + ``PayrollPFResult`` for one employee.
 
     Replaces any existing result row for the same run/employee.
     """
+    from apps.compliance.models import PayrollPFResult
     from apps.payroll.models import PayrollResult, PayrollResultComponent
     from apps.payroll.services.locking import assert_run_unlocked_for_mutation
 
@@ -51,11 +52,31 @@ def snapshot_employee_result(run, calc_result):
         )
     if component_rows:
         PayrollResultComponent.objects.bulk_create(component_rows)
+
+    pf_calc = getattr(calc_result, 'pf_calculation', None)
+    if pf_calc is not None:
+        PayrollPFResult.objects.create(
+            payroll_result=result,
+            rule_set=pf_calc.rule_set,
+            rule_version=pf_calc.rule_version or '',
+            pf_wages=pf_calc.pf_wages,
+            actual_pf_wages=pf_calc.actual_pf_wages,
+            employee_pf=pf_calc.employee_pf,
+            voluntary_pf=pf_calc.voluntary_pf,
+            employer_pf=pf_calc.employer_pf,
+            eps=pf_calc.eps,
+            epf=pf_calc.epf,
+            edli=pf_calc.edli,
+            admin_charge=pf_calc.admin_charge,
+            inspection_charge=pf_calc.inspection_charge,
+            ncp_days=pf_calc.ncp_days,
+            calculation_detail=pf_calc.to_detail_dict(),
+        )
     return result
 
 
 def clear_run_results(run) -> int:
-    """Delete all results (and cascaded components) for a run. Returns count."""
+    """Delete all results (and cascaded components / PF results) for a run. Returns count."""
     from apps.payroll.models import PayrollResult
     from apps.payroll.services.locking import assert_run_unlocked_for_mutation
 

@@ -44,17 +44,17 @@ sequenceDiagram
 | `payable_days` (no summary) | `max(0, eligible_days − lop_days)` (`lop_days` defaults to 0) |
 | `proration_factor` | `payable_days / calendar_days` |
 
-Earnings and structure deductions are evaluated at full monthly rates, then multiplied by `proration_factor`. Statutory PF/ESI/PT/TDS on run results are **`Decimal('0.00')` placeholders** until Sprint 9.
+Earnings and structure deductions are evaluated at full monthly rates, then multiplied by `proration_factor`. **EPF** is calculated via `apps.compliance` (Sprint 9.1) from PF-applicable earnings, ceiling, and the effective `PFRuleSet`. ESI / PT / TDS remain zero stubs (Sprint 9.2–9.4).
 
 ### Run status after calculation
 
 | Outcome | Status | Results |
 |---------|--------|---------|
-| All employees succeed | `Calculated` | One `PayrollResult` per employee |
+| All employees succeed | `Calculated` | One `PayrollResult` per employee (+ `PayrollPFResult`) |
 | One or more fail | `Incomplete` | Successful employees kept; failures listed in `calculation_errors` (no fake zero salary) |
 | Locked / Reviewed / Approved | Rejected | Unchanged |
 
-Recalculation of unlocked runs replaces previous results inside `transaction.atomic`.
+Recalculation of unlocked runs replaces previous results inside `transaction.atomic`. The run stores `pf_rule_set` resolved for the period end date.
 
 ---
 
@@ -96,7 +96,7 @@ sequenceDiagram
 | `salary_calculator.py` | Line specs → dependency order → fixed / % / formula → rounding | **Implemented (v0.7)** |
 | `calculator.py` / `payroll_engine.calculate_run` | Run pipeline, proration, snapshots, partial errors | **Implemented (v0.8.2 / Sprint 8.2)** |
 | `attendance_loader.py` / `salary_loader.py` | Period attendance + effective assignment | **Implemented (Sprint 8.2)** |
-| `statutory.py` | EE/ER PF, ESI, PT, TDS helpers | **Stubs** — full engines **Planned (Sprint 9)** |
+| `statutory.py` + `apps.compliance` | EPF engine; ESI/PT/TDS stubs | **EPF Implemented (Sprint 9.1)**; ESI/PT/TDS **Planned (9.2–9.4)** |
 | `payslip_generator.py` | Legacy payslip path | **Implemented (v0.7)** |
 | `payslip_data.py` | Read-only payslip preview dataset from `PayrollResult` snapshots | **Implemented (Sprint 8.4)** |
 | `report_queries.py` | Visibility-aware snapshot report queries, totals, and summaries | **Implemented (Sprint 8.4)** |
@@ -106,7 +106,7 @@ sequenceDiagram
 ### Net pay (run engine)
 
 \[
-\text{net} = \sum \text{prorated earnings} - \sum \text{prorated structure deductions} - 0_{\text{statutory placeholders}}
+\text{net} = \sum \text{prorated earnings} - \sum \text{prorated structure deductions} - \text{EE PF} - \text{VPF} - 0_{\text{ESI/PT/TDS stubs}}
 \]
 
 ### Related
@@ -114,4 +114,3 @@ sequenceDiagram
 - [Payroll lifecycle](lifecycle.md)
 - [Data model](data-model.md)
 - [Extension points](extension-points.md)
-|

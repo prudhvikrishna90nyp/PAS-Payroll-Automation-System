@@ -1,4 +1,4 @@
-"""Per-employee payroll calculation orchestrator (Sprint 8.2).
+"""Per-employee payroll calculation orchestrator (Sprint 8.2 / 9.1).
 
 PRORATION BASIS
 ---------------
@@ -21,8 +21,8 @@ Numerator ``payable_days``:
 ``proration_factor = payable_days / calendar_days`` (zero when calendar_days is 0).
 
 Earnings (and structure deductions) are evaluated at full monthly rates via
-the structure engine, then multiplied by ``proration_factor``. Statutory
-PF/ESI/PT/TDS amounts are ``Decimal('0.00')`` placeholders until Sprint 9.
+the structure engine, then multiplied by ``proration_factor``. Statutory EPF
+is calculated via ``apps.compliance`` (Sprint 9.1); ESI/PT/TDS remain stubs.
 """
 
 from __future__ import annotations
@@ -42,6 +42,7 @@ from apps.payroll.services.exceptions import (
 from apps.payroll.services.formula_engine import FormulaError
 from apps.payroll.services.salary_calculator import calculate_assignment_components
 from apps.payroll.services.salary_loader import resolve_assignment_for_period
+from apps.payroll.services.statutory import statutory_component_rows
 
 
 TWO_PLACES = Decimal('0.01')
@@ -68,6 +69,7 @@ class EmployeeCalcResult:
     ctc_snapshot: Decimal | None
     components: list[dict] = field(default_factory=list)
     calculation_detail: dict = field(default_factory=dict)
+    pf_calculation: object | None = None
 
 
 def eligible_employees_for_run(run):
@@ -143,6 +145,7 @@ def calculate_employee(
     period,
     assignment=None,
     attendance: AttendanceSnapshot | None = None,
+    pf_rule_set=None,
 ) -> EmployeeCalcResult:
     """Calculate one employee's payroll snapshot inputs (not persisted)."""
     if assignment is None:
@@ -164,47 +167,18 @@ def calculate_employee(
         raise InvalidFormulaError(msg, employee=employee) from exc
 
     earning_rows = build_earning_rows(full.lines, factor)
-    deduction_rows = build_deduction_rows(full.lines, factor)
-
-    # Sprint 9 placeholders — statutory always zero for engine results.
-    statutory_rows = [
-        {
-            'component_code': 'STAT_PF',
-            'component_name': 'PF (placeholder)',
-            'component_type': ComponentType.DEDUCTION,
-            'amount': ZERO,
-            'calculation_detail': {
-                'placeholder': True,
-                'sprint': 9,
-                'note': 'Statutory PF deferred to Sprint 9',
-            },
-        },
-        {
-            'component_code': 'STAT_ESI',
-            'component_name': 'ESI (placeholder)',
-            'component_type': ComponentType.DEDUCTION,
-            'amount': ZERO,
-            'calculation_detail': {
-                'placeholder': True,
-                'sprint': 9,
-                'note': 'Statutory ESI deferred to Sprint 9',
-            },
-        },
+    # Structure-defined EE_PF / EE_ESI lines are superseded by statutory engine rows.
+    deduction_rows = [
+        row for row in build_deduction_rows(full.lines, factor)
+        if str(row.get('component_code', '')).upper() not in {
+            'EE_PF', 'EE_ESI', 'PT', 'TDS', 'STAT_PF', 'STAT_ESI', 'STAT_PT', 'STAT_TDS',
+        }
     ]
 
     total_earnings = sum((r['amount'] for r in earning_rows), ZERO).quantize(TWO_PLACES)
-    structure_deductions = sum((r['amount'] for r in deduction_rows), ZERO).quantize(TWO_PLACES)
-    # Statutory placeholders are zero until Sprint 9.
-    total_deductions = structure_deductions.quantize(TWO_PLACES)
     gross_earnings = total_earnings
-    net = (gross_earnings - total_deductions).quantize(TWO_PLACES)
 
-    components = earning_rows + deduction_rows + statutory_rows
-    ctc = assignment.ctc
-    if ctc is not None:
-        ctc = Decimal(ctc).quantize(TWO_PLACES)
-
-    # Present days for snapshot: from summary, else payable for display
+    # Present / LOP for PF NCP days
     if attendance.source == 'summary':
         present_days = attendance.present_days
         absent_days = attendance.absent_days
@@ -215,6 +189,32 @@ def calculate_employee(
         absent_days = max(ZERO, eligible_days - payable_days)
         lop_days = attendance.lop_days
         overtime_hours = ZERO
+
+    statutory_rows, pf_calc = statutory_component_rows(
+        employee=employee,
+        period=period,
+        earning_rows=earning_rows,
+        gross=gross_earnings,
+        rule_set=pf_rule_set,
+        ncp_days=lop_days,
+    )
+
+    structure_deductions = sum((r['amount'] for r in deduction_rows), ZERO).quantize(TWO_PLACES)
+    statutory_deductions = sum(
+        (
+            r['amount']
+            for r in statutory_rows
+            if r.get('component_type') == ComponentType.DEDUCTION
+        ),
+        ZERO,
+    ).quantize(TWO_PLACES)
+    total_deductions = (structure_deductions + statutory_deductions).quantize(TWO_PLACES)
+    net = (gross_earnings - total_deductions).quantize(TWO_PLACES)
+
+    components = earning_rows + deduction_rows + statutory_rows
+    ctc = assignment.ctc
+    if ctc is not None:
+        ctc = Decimal(ctc).quantize(TWO_PLACES)
 
     return EmployeeCalcResult(
         employee=employee,
@@ -234,6 +234,7 @@ def calculate_employee(
         net_salary=net,
         ctc_snapshot=ctc,
         components=components,
+        pf_calculation=pf_calc,
         calculation_detail={
             'calendar_days': str(calendar_days),
             'eligible_days': str(eligible_days),
@@ -241,12 +242,20 @@ def calculate_employee(
             'proration_factor': str(factor),
             'attendance_source': attendance.source,
             'gross_salary_full': str(assignment.gross_salary),
-            'statutory': 'placeholders_zero_until_sprint_9',
+            'statutory': 'epf_sprint_9_1',
+            'pf': pf_calc.to_detail_dict() if pf_calc else {},
         },
     )
 
 
-def safe_calculate_employee(*, employee, period, assignment=None, attendance=None) -> EmployeeCalcResult:
+def safe_calculate_employee(
+    *,
+    employee,
+    period,
+    assignment=None,
+    attendance=None,
+    pf_rule_set=None,
+) -> EmployeeCalcResult:
     """Wrapper that normalizes known failures to EmployeeCalculationError."""
     try:
         return calculate_employee(
@@ -254,6 +263,7 @@ def safe_calculate_employee(*, employee, period, assignment=None, attendance=Non
             period=period,
             assignment=assignment,
             attendance=attendance,
+            pf_rule_set=pf_rule_set,
         )
     except EmployeeCalculationError:
         raise

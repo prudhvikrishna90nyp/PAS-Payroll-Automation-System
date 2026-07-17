@@ -55,6 +55,9 @@
         <a href="{% url 'payroll:structure_list' %}" class="list-group-item list-group-item-action {% if request.resolver_match.namespace == 'payroll' %}active{% endif %}">
             <i class="bi bi-cash-stack me-2"></i> Payroll
         </a>
+        <a href="{% url 'compliance:hub' %}" class="list-group-item list-group-item-action {% if request.resolver_match.namespace == 'compliance' %}active{% endif %}">
+            <i class="bi bi-shield-check me-2"></i> Compliance
+        </a>
         <a href="{% url 'reports_index' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'reports_index' %}active{% endif %}">
             <i class="bi bi-bar-chart me-2"></i> Reports
         </a>
