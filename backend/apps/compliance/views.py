@@ -1,4 +1,4 @@
-"""Compliance UI — PF / ESI registers and exports (Sprint 9.1 / 9.2)."""
+"""Compliance UI — PF / ESI / PT registers and exports (Sprint 9.1–9.3)."""
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
@@ -12,6 +12,9 @@ from apps.compliance.services.esi_export import esi_contribution_excel_response
 from apps.compliance.services.esi_reports import ESI_REPORT_EXPORTS
 from apps.compliance.services.esi_rules import seed_default_esi_rule_set
 from apps.compliance.services.pf_rules import seed_default_pf_rule_set
+from apps.compliance.services.pt_export import pt_challan_excel_response
+from apps.compliance.services.pt_reports import PT_REPORT_EXPORTS
+from apps.compliance.services.pt_rules import seed_ap_pt_rule_set
 from apps.compliance.services.reports import REPORT_EXPORTS
 from apps.payroll.models import PayrollRun, PayrollRunStatus
 from apps.payroll.services.report_queries import companies_visible_to_user
@@ -36,6 +39,7 @@ class ComplianceHubView(ComplianceLoginPermissionMixin, View):
     def get(self, request):
         seed_default_pf_rule_set()
         seed_default_esi_rule_set()
+        seed_ap_pt_rule_set()
         visible = companies_visible_to_user(request.user)
         runs = (
             PayrollRun.objects
@@ -47,7 +51,7 @@ class ComplianceHubView(ComplianceLoginPermissionMixin, View):
                     PayrollRunStatus.LOCKED,
                 ]
             )
-            .select_related('period', 'company', 'pf_rule_set', 'esi_rule_set')
+            .select_related('period', 'company', 'pf_rule_set', 'esi_rule_set', 'pt_rule_set')
             .order_by('-created_at')
         )
         if visible is not None:
@@ -60,6 +64,7 @@ class ComplianceHubView(ComplianceLoginPermissionMixin, View):
                 'runs': runs,
                 'report_keys': list(REPORT_EXPORTS.keys()),
                 'esi_report_keys': list(ESI_REPORT_EXPORTS.keys()),
+                'pt_report_keys': list(PT_REPORT_EXPORTS.keys()),
             },
         )
 
@@ -115,6 +120,46 @@ class ESIContributionExportView(ComplianceLoginPermissionMixin, View):
         require_ip = request.GET.get('validate', '1') != '0'
         try:
             return esi_contribution_excel_response(run, require_ip=require_ip)
+        except ValidationError as exc:
+            messages.error(
+                request,
+                '; '.join(exc.messages) if hasattr(exc, 'messages') else str(exc),
+            )
+            return redirect(reverse('compliance:hub'))
+
+
+class PTReportExportView(ComplianceLoginPermissionMixin, View):
+    permission_required = 'compliance.export_ptregister'
+    raise_exception = True
+
+    def get(self, request, run_id, report_key):
+        if report_key not in PT_REPORT_EXPORTS:
+            messages.error(request, 'Unknown PT report.')
+            return redirect('compliance:hub')
+        run = get_object_or_404(
+            PayrollRun.objects.select_related('period', 'company'),
+            pk=run_id,
+        )
+        visible = companies_visible_to_user(request.user)
+        if visible is not None and run.company_id not in visible:
+            raise PermissionDenied
+        return PT_REPORT_EXPORTS[report_key](run)
+
+
+class PTChallanExportView(ComplianceLoginPermissionMixin, View):
+    permission_required = 'compliance.export_ptchallan'
+    raise_exception = True
+
+    def get(self, request, run_id):
+        run = get_object_or_404(
+            PayrollRun.objects.select_related('period', 'company'),
+            pk=run_id,
+        )
+        visible = companies_visible_to_user(request.user)
+        if visible is not None and run.company_id not in visible:
+            raise PermissionDenied
+        try:
+            return pt_challan_excel_response(run)
         except ValidationError as exc:
             messages.error(
                 request,

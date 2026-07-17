@@ -1,4 +1,4 @@
-"""Persist payroll result snapshots (Sprint 8.2 / 9.1 / 9.2)."""
+"""Persist payroll result snapshots (Sprint 8.2 / 9.1–9.3)."""
 
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ from django.db import transaction
 
 @transaction.atomic
 def snapshot_employee_result(run, calc_result):
-    """Persist ``PayrollResult`` + components + PF/ESI results for one employee.
+    """Persist ``PayrollResult`` + components + PF/ESI/PT results for one employee.
 
     Replaces any existing result row for the same run/employee.
     """
-    from apps.compliance.models import PayrollESIResult, PayrollPFResult
+    from apps.compliance.models import PayrollESIResult, PayrollPFResult, PayrollPTResult
     from apps.payroll.models import PayrollResult, PayrollResultComponent
     from apps.payroll.services.locking import assert_run_unlocked_for_mutation
 
@@ -90,11 +90,23 @@ def snapshot_employee_result(run, calc_result):
             eligibility_notes=esi_calc.eligibility_notes or '',
             calculation_detail=esi_calc.to_detail_dict(),
         )
+
+    pt_calc = getattr(calc_result, 'pt_calculation', None)
+    if pt_calc is not None:
+        PayrollPTResult.objects.create(
+            payroll_result=result,
+            rule_set=pt_calc.rule_set,
+            state_code=pt_calc.state_code or '',
+            pt_wages=pt_calc.pt_wages,
+            tax_amount=pt_calc.tax_amount,
+            exemption_reason=pt_calc.exemption_reason or '',
+            calculation_snapshot=pt_calc.to_snapshot_dict(),
+        )
     return result
 
 
 def clear_run_results(run) -> int:
-    """Delete all results (and cascaded components / PF / ESI results) for a run. Returns count."""
+    """Delete all results (and cascaded components / PF / ESI / PT results) for a run. Returns count."""
     from apps.payroll.models import PayrollResult
     from apps.payroll.services.locking import assert_run_unlocked_for_mutation
 

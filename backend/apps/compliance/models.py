@@ -1,4 +1,4 @@
-"""EPF / ESI statutory compliance models (Sprint 9.1 / 9.2)."""
+"""EPF / ESI / Professional Tax statutory compliance models (Sprint 9.1–9.3)."""
 
 from __future__ import annotations
 
@@ -542,3 +542,297 @@ class PayrollESIResult(models.Model):
 
     def __str__(self):
         return f'ESI result for payroll result #{self.payroll_result_id}'
+
+
+# ---------------------------------------------------------------------------
+# Andhra Pradesh Professional Tax (salaried) — documented seed rates
+# ---------------------------------------------------------------------------
+# Source: Andhra Pradesh Tax on Professions, Trades, Callings and Employments
+# Act — commonly published commercial-tax / payroll rate card for employees
+# (rates unchanged in recent years; seed effective_from: 2024-04-01):
+#
+#   | Monthly PT wages              | Monthly tax | February (special) |
+#   | Up to ₹15,000                 | Nil (₹0)    | Nil (₹0)           |
+#   | ₹15,001 – ₹20,000             | ₹150        | ₹150               |
+#   | Above ₹20,000                 | ₹200        | ₹300               |
+#
+# Special month: FEBRUARY (calendar month 2). Only the top slab differs
+# (₹300 instead of ₹200). Frequency for employees: MONTHLY.
+#
+# CRITICAL: Slabs are NEVER hardcoded in the calculation engine — always
+# load ProfessionalTaxSlab rows from the DB for the effective rule set.
+# PT jurisdiction is the employee work state (EmployeePTProfile.state_code),
+# NOT the company registered address alone.
+# ---------------------------------------------------------------------------
+
+
+class PTFrequency(models.TextChoices):
+    MONTHLY = 'MONTHLY', 'Monthly'
+    HALF_YEARLY = 'HALF_YEARLY', 'Half-yearly'
+    ANNUAL = 'ANNUAL', 'Annual'
+
+
+class PTExemptionType(models.TextChoices):
+    NONE = '', 'None'
+    SENIOR_CITIZEN = 'SENIOR_CITIZEN', 'Senior citizen'
+    DISABLED = 'DISABLED', 'Differently abled'
+    OTHER = 'OTHER', 'Other / manual exemption'
+
+
+class ProfessionalTaxRuleSet(models.Model):
+    """Versioned state PT rule set. Active rows must not overlap by state + dates."""
+
+    state_code = models.CharField(
+        max_length=10,
+        help_text='ISO-like state code for PT jurisdiction (e.g. AP, TS, KA).',
+        db_index=True,
+    )
+    name = models.CharField(max_length=100)
+    effective_from = models.DateField()
+    effective_to = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Inclusive end date. Null means open-ended.',
+    )
+    frequency = models.CharField(
+        max_length=20,
+        choices=PTFrequency.choices,
+        default=PTFrequency.MONTHLY,
+    )
+    special_month = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text='Calendar month (1–12) with alternate slab amounts (e.g. 2 = February for AP).',
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+    )
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['state_code', '-effective_from']
+        verbose_name = 'Professional Tax Rule Set'
+        verbose_name_plural = 'Professional Tax Rule Sets'
+        permissions = [
+            ('export_ptregister', 'Can export PT registers'),
+            ('export_ptchallan', 'Can export PT challan / return data'),
+        ]
+
+    def __str__(self):
+        end = self.effective_to or 'open'
+        return f'{self.state_code} — {self.name} ({self.effective_from} – {end})'
+
+    def clean(self):
+        errors = {}
+        if self.state_code:
+            self.state_code = self.state_code.strip().upper()
+        if self.effective_to and self.effective_from and self.effective_to < self.effective_from:
+            errors['effective_to'] = 'effective_to must be on or after effective_from.'
+        if self.special_month is not None and not (1 <= int(self.special_month) <= 12):
+            errors['special_month'] = 'special_month must be between 1 and 12.'
+        if self.effective_from and self.is_active and self.state_code:
+            overlap = self._overlapping_active_queryset()
+            if overlap.exists():
+                other = overlap.first()
+                errors['__all__'] = (
+                    f'Active date range overlaps rule set for {other.state_code} '
+                    f'({other.name}: {other.effective_from} – {other.effective_to or "open"}).'
+                )
+        if errors:
+            raise ValidationError(errors)
+
+    def _overlapping_active_queryset(self):
+        start = self.effective_from
+        end = self.effective_to
+        qs = ProfessionalTaxRuleSet.objects.filter(
+            is_active=True,
+            state_code=self.state_code,
+        ).exclude(pk=self.pk)
+        if end is None:
+            qs = qs.filter(Q(effective_to__isnull=True) | Q(effective_to__gte=start))
+        else:
+            qs = qs.filter(effective_from__lte=end).filter(
+                Q(effective_to__isnull=True) | Q(effective_to__gte=start)
+            )
+        return qs
+
+    def save(self, *args, **kwargs):
+        if self.state_code:
+            self.state_code = self.state_code.strip().upper()
+        if kwargs.get('update_fields') is None:
+            self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class ProfessionalTaxSlab(models.Model):
+    """One salary band within a PT rule set. Amounts come from DB only."""
+
+    rule_set = models.ForeignKey(
+        ProfessionalTaxRuleSet,
+        on_delete=models.CASCADE,
+        related_name='slabs',
+    )
+    salary_from = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text='Inclusive lower bound of monthly PT wages.',
+    )
+    salary_to = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Inclusive upper bound. Null = no upper limit.',
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    tax_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    special_month_tax_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Tax in the rule set special_month (defaults to tax_amount when null).',
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    sequence = models.PositiveSmallIntegerField(default=10)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['rule_set_id', 'sequence', 'salary_from']
+        verbose_name = 'Professional Tax Slab'
+        verbose_name_plural = 'Professional Tax Slabs'
+
+    def __str__(self):
+        upper = self.salary_to if self.salary_to is not None else '∞'
+        return f'{self.rule_set.state_code} {self.salary_from}–{upper}: {self.tax_amount}'
+
+    def clean(self):
+        errors = {}
+        if self.salary_to is not None and self.salary_from is not None:
+            if self.salary_to < self.salary_from:
+                errors['salary_to'] = 'salary_to must be on or after salary_from.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if kwargs.get('update_fields') is None:
+            self.full_clean()
+        super().save(*args, **kwargs)
+
+    def matches(self, wages: Decimal) -> bool:
+        wages = Decimal(wages)
+        if wages < Decimal(self.salary_from):
+            return False
+        if self.salary_to is not None and wages > Decimal(self.salary_to):
+            return False
+        return True
+
+    def amount_for_month(self, *, month: int, special_month: int | None) -> Decimal:
+        if special_month and month == special_month and self.special_month_tax_amount is not None:
+            return Decimal(self.special_month_tax_amount)
+        return Decimal(self.tax_amount)
+
+
+class EmployeePTProfile(models.Model):
+    """Per-employee PT jurisdiction (work state) and exemption flags.
+
+    ``state_code`` is the PT work-state / jurisdiction — not the company
+    registered address alone. Missing profile / blank state is treated as a
+    validation gap (missing-work-state report), not a silent company fallback.
+    """
+
+    employee = models.OneToOneField(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name='pt_profile',
+    )
+    state_code = models.CharField(
+        max_length=10,
+        blank=True,
+        help_text='PT jurisdiction / work state (e.g. AP). Required when is_applicable.',
+    )
+    is_applicable = models.BooleanField(default=True)
+    exemption_type = models.CharField(
+        max_length=30,
+        choices=PTExemptionType.choices,
+        blank=True,
+        default='',
+    )
+    exemption_reason = models.CharField(max_length=255, blank=True)
+    effective_from = models.DateField(null=True, blank=True)
+    effective_to = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Inclusive end of this jurisdiction profile. Null = open-ended.',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['employee__employee_code']
+        verbose_name = 'Employee PT Profile'
+        verbose_name_plural = 'Employee PT Profiles'
+
+    def __str__(self):
+        return f'PT profile — {self.employee.employee_code} ({self.state_code or "no state"})'
+
+    def clean(self):
+        errors = {}
+        if self.state_code:
+            self.state_code = self.state_code.strip().upper()
+        if self.effective_to and self.effective_from and self.effective_to < self.effective_from:
+            errors['effective_to'] = 'effective_to must be on or after effective_from.'
+        if self.is_applicable and not (self.state_code or '').strip():
+            errors['state_code'] = (
+                'PT work-state / jurisdiction is required when PT is applicable. '
+                'Do not rely on company registered address alone.'
+            )
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if self.state_code:
+            self.state_code = self.state_code.strip().upper()
+        if kwargs.get('update_fields') is None:
+            self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class PayrollPTResult(models.Model):
+    """Immutable Professional Tax calculation snapshot linked to a payroll result."""
+
+    payroll_result = models.OneToOneField(
+        'payroll.PayrollResult',
+        on_delete=models.CASCADE,
+        related_name='pt_result',
+    )
+    rule_set = models.ForeignKey(
+        ProfessionalTaxRuleSet,
+        on_delete=models.PROTECT,
+        related_name='payroll_pt_results',
+        null=True,
+        blank=True,
+    )
+    state_code = models.CharField(max_length=10, blank=True)
+    pt_wages = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    exemption_reason = models.CharField(max_length=255, blank=True)
+    calculation_snapshot = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['payroll_result_id']
+        verbose_name = 'Payroll PT Result'
+        verbose_name_plural = 'Payroll PT Results'
+
+    def __str__(self):
+        return f'PT result for payroll result #{self.payroll_result_id}'

@@ -3,11 +3,21 @@ from django.contrib import admin
 from apps.compliance.models import (
     EmployeeESIProfile,
     EmployeePFProfile,
+    EmployeePTProfile,
     ESIRuleSet,
     PayrollESIResult,
     PayrollPFResult,
+    PayrollPTResult,
     PFRuleSet,
+    ProfessionalTaxRuleSet,
+    ProfessionalTaxSlab,
 )
+
+
+class ProfessionalTaxSlabInline(admin.TabularInline):
+    model = ProfessionalTaxSlab
+    extra = 0
+    ordering = ('sequence', 'salary_from')
 
 
 @admin.register(PFRuleSet)
@@ -159,5 +169,85 @@ class PayrollESIResultAdmin(admin.ModelAdmin):
         'missing_ip_number',
         'eligibility_notes',
         'calculation_detail',
+        'created_at',
+    )
+
+
+@admin.register(ProfessionalTaxRuleSet)
+class ProfessionalTaxRuleSetAdmin(admin.ModelAdmin):
+    list_display = (
+        'state_code',
+        'name',
+        'effective_from',
+        'effective_to',
+        'frequency',
+        'special_month',
+        'is_active',
+    )
+    list_filter = ('is_active', 'state_code', 'frequency')
+    search_fields = ('state_code', 'name')
+    ordering = ('state_code', '-effective_from')
+    inlines = [ProfessionalTaxSlabInline]
+
+
+@admin.register(ProfessionalTaxSlab)
+class ProfessionalTaxSlabAdmin(admin.ModelAdmin):
+    list_display = (
+        'rule_set',
+        'sequence',
+        'salary_from',
+        'salary_to',
+        'tax_amount',
+        'special_month_tax_amount',
+    )
+    list_filter = ('rule_set__state_code',)
+    search_fields = ('rule_set__name', 'rule_set__state_code')
+    autocomplete_fields = ('rule_set',)
+
+
+@admin.register(EmployeePTProfile)
+class EmployeePTProfileAdmin(admin.ModelAdmin):
+    list_display = (
+        'employee',
+        'state_code',
+        'is_applicable',
+        'exemption_type',
+        'effective_from',
+        'effective_to',
+    )
+    list_filter = ('is_applicable', 'state_code', 'exemption_type')
+    search_fields = (
+        'state_code',
+        'employee__employee_code',
+        'employee__first_name',
+        'employee__last_name',
+    )
+    autocomplete_fields = ('employee',)
+    raw_id_fields = ('employee',)
+
+
+@admin.register(PayrollPTResult)
+class PayrollPTResultAdmin(admin.ModelAdmin):
+    list_display = (
+        'payroll_result',
+        'state_code',
+        'pt_wages',
+        'tax_amount',
+        'exemption_reason',
+        'rule_set',
+    )
+    list_filter = ('state_code',)
+    search_fields = (
+        'state_code',
+        'payroll_result__employee__employee_code',
+    )
+    readonly_fields = (
+        'payroll_result',
+        'rule_set',
+        'state_code',
+        'pt_wages',
+        'tax_amount',
+        'exemption_reason',
+        'calculation_snapshot',
         'created_at',
     )
