@@ -1,4 +1,4 @@
-# PAS Production Deployment Checklist (v1.0.0)
+﻿# PAS Production Deployment Checklist (v1.0.0)
 
 Use with `backend/docs/05_DEPLOYMENT.md`. Complete every item before exposing PAS to production payroll data.
 
@@ -10,6 +10,7 @@ Use with `backend/docs/05_DEPLOYMENT.md`. Complete every item before exposing PA
 
 - [ ] Python 3.12+ (or Docker Compose stack)
 - [ ] PostgreSQL 14+ (do **not** use SQLite in production)
+- [ ] If Docker virtualization is unavailable: native Postgres per [POSTGRES_WITHOUT_DOCKER.md](POSTGRES_WITHOUT_DOCKER.md) (Docker optional)
 - [ ] Strong unique `SECRET_KEY`
 - [ ] `DEBUG=False`
 - [ ] `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` set for the real domain

@@ -1,4 +1,4 @@
-# PAS v1.0.0 — Controlled Production Go-Live Runbook
+﻿# PAS v1.0.0 — Controlled Production Go-Live Runbook
 
 **Audience:** ops + payroll lead  
 **Goal:** run PAS safely for **one company and one payroll month** in parallel with existing Excel/manual payroll.  
@@ -31,18 +31,20 @@ Related:
 
 ### Options (pick one)
 
+**Docker is optional.** First live company setup only needs PostgreSQL + the Django app. If Docker Desktop fails with “virtualization support not detected”, install native Postgres — see [POSTGRES_WITHOUT_DOCKER.md](POSTGRES_WITHOUT_DOCKER.md).
+
 | Mode | When to use | How |
 |------|-------------|-----|
-| **Docker Compose** (recommended) | Staging / first production host | `cd backend` → copy `.env.example` → `.env` → `docker compose up --build -d` → migrate + admin (below) |
-| **Gunicorn + PostgreSQL** | Bare-metal / VM | Install `requirements/production.txt`, set `DJANGO_SETTINGS_MODULE=config.settings.production`, migrate, `collectstatic`, run `gunicorn config.wsgi:application --bind 0.0.0.0:8000` |
+| **Native PostgreSQL + Gunicorn** (recommended without Docker) | Windows laptop / bare-metal / virtualization disabled | Install Postgres for Windows ([POSTGRES_WITHOUT_DOCKER.md](POSTGRES_WITHOUT_DOCKER.md)), copy `.env.example` → `.env` with `DB_*`, install `requirements/production.txt`, `migrate`, `ensure_admin` / `createsuperuser`, run Gunicorn |
+| **Docker Compose** (optional) | Host with firmware virtualization + Hyper-V or WSL2 | `cd backend` → copy `.env.example` → `.env` → `docker compose up --build -d` → migrate + admin (below) |
 | **`runserver`** | Local/staging smoke only | `config.settings.development` — **not** for live payroll |
 
-Docker services (`backend/docker-compose.yml`):
+Optional Docker services (`backend/docker-compose.yml`):
 
 - `web` — Gunicorn on port **8000**, `config.settings.production`
 - `db` — PostgreSQL 17 (`POSTGRES_DB=payroll`)
 
-Local SQLite dev is unchanged: leave `DB_NAME` empty in `.env` and use `manage.py` defaults (`config.settings.development`).
+Local SQLite dev is unchanged: leave `DB_NAME` empty in `.env` and use `manage.py` defaults (`config.settings.development`). Do **not** use SQLite for production payroll.
 
 ### Quick verify
 
@@ -61,7 +63,7 @@ python manage.py check
 
 ## 2. PostgreSQL configured
 
-Production **must** use PostgreSQL (not SQLite).
+Production **must** use PostgreSQL (not SQLite). Prefer a **native** or managed Postgres instance; Docker Compose is not required. On Windows without virtualization, follow [POSTGRES_WITHOUT_DOCKER.md](POSTGRES_WITHOUT_DOCKER.md).
 
 Django reads **`DB_*`** from the environment (see `config/settings/base.py`):
 
