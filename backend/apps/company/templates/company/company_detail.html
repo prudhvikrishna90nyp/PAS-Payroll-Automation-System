@@ -232,6 +232,12 @@
                 <a href="{% url 'organisation:designation_list' %}?company={{ company.pk }}" class="small">View designations</a>
                 · <a href="{% url 'organisation:designation_add' %}?company={{ company.pk }}" class="small">Add</a>
             </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Employees</div>
+                <div class="fw-semibold">{{ company.employees.count }}</div>
+                <a href="{% url 'employees:employee_list' %}?company={{ company.pk }}" class="small">View employees</a>
+                · <a href="{% url 'employees:employee_add' %}?company={{ company.pk }}" class="small">Add</a>
+            </div>
         </div>
     </div>
 </div>

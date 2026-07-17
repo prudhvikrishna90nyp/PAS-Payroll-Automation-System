@@ -64,6 +64,19 @@ Currently HTML views only. REST API planned for Phase 2 under `/api/v1/`.
 | POST | `/designations/<id>/archive/` | organisation:designation_archive | Required | Archive designation |
 | POST | `/designations/<id>/restore/` | organisation:designation_restore | Required | Restore designation |
 
+### Employees (`/employees/`)
+
+| Method | URL | Name | Auth | Description |
+|--------|-----|------|------|-------------|
+| GET | `/employees/` | employees:employee_list | Required | List employees with advanced filters |
+| GET | `/employees/<id>/` | employees:employee_detail | Required | Employee profile with documents |
+| GET/POST | `/employees/add/` | employees:employee_add | Required | Create employee (multipart for photo) |
+| GET/POST | `/employees/<id>/edit/` | employees:employee_edit | Required | Edit employee |
+| POST | `/employees/<id>/archive/` | employees:employee_archive | Required | Archive employee |
+| POST | `/employees/<id>/restore/` | employees:employee_restore | Required | Restore employee |
+| GET/POST | `/employees/import/` | employees:employee_import | Required | Bulk Excel import |
+| GET | `/employees/export/` | employees:employee_export | Required | Excel export (`?company=`, `?template=1`) |
+
 ---
 
 ## Employee

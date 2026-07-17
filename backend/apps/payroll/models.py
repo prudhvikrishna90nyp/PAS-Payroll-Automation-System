@@ -50,11 +50,11 @@ class Payslip(models.Model):
 
     class Meta:
         db_table = 'employees_payslip'
-        ordering = ['-pay_period__year', '-pay_period__month', 'employee__employee_id']
+        ordering = ['-pay_period__year', '-pay_period__month', 'employee__employee_code']
         unique_together = [['employee', 'pay_period']]
 
     def __str__(self):
-        return f'{self.employee.employee_id} - {self.pay_period}'
+        return f'{self.employee.employee_code} - {self.pay_period}'
 
 
 class PayslipItem(models.Model):

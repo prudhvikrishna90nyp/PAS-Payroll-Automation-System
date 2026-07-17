@@ -41,5 +41,5 @@ class PayslipAdmin(admin.ModelAdmin):
         'generated_at',
     )
     list_filter = ('status', 'pay_period')
-    search_fields = ('employee__employee_id', 'employee__first_name', 'employee__last_name')
+    search_fields = ('employee__employee_code', 'employee__first_name', 'employee__last_name')
     inlines = [PayslipItemInline]

@@ -22,8 +22,8 @@ class AttendanceRecord(models.Model):
     notes = models.TextField(blank=True)
 
     class Meta:
-        ordering = ['-date', 'employee__employee_id']
+        ordering = ['-date', 'employee__employee_code']
         unique_together = [['employee', 'date']]
 
     def __str__(self):
-        return f'{self.employee.employee_id} - {self.date} ({self.status})'
+        return f'{self.employee.employee_code} - {self.date} ({self.status})'

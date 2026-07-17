@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}{{ employee.full_name }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex align-items-center gap-3">
+        {% if employee.photo %}
+            <img src="{{ employee.photo.url }}" alt="{{ employee.full_name }}" class="rounded-circle" width="72" height="72" style="object-fit: cover;">
+        {% endif %}
+        <div>
+            <h2 class="mb-0">{{ employee.full_name }}</h2>
+            <p class="text-muted mb-0">
+                <strong>{{ employee.employee_code }}</strong> · {{ employee.company.company_name }}
+                {% if employee.branch %} · {{ employee.branch.branch_name }}{% endif %}
+            </p>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'employees:employee_list' %}?company={{ employee.company.pk }}" class="btn btn-outline-secondary">Back</a>
+        <a href="{% url 'employees:employee_edit' employee.pk %}" class="btn btn-primary">Edit</a>
+        {% if employee.is_active %}
+            <form method="post" action="{% url 'employees:employee_archive' employee.pk %}" class="d-inline" onsubmit="return confirm('Archive this employee?');">{% csrf_token %}<button type="submit" class="btn btn-outline-danger">Archive</button></form>
+        {% else %}
+            <form method="post" action="{% url 'employees:employee_restore' employee.pk %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-outline-success">Restore</button></form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">Organisation</div>
+            <div class="card-body row g-3">
+                <div class="col-md-6"><div class="text-muted small">Company</div><div><a href="{% url 'company:company_detail' employee.company.pk %}">{{ employee.company.company_name }}</a></div></div>
+                <div class="col-md-6"><div class="text-muted small">Client</div><div>{{ employee.company.client.client_name }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Branch</div><div>{{ employee.branch.branch_name|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Department</div><div>{{ employee.department.name|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Designation</div><div>{{ employee.designation.name|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Employment Status</div><div>{{ employee.get_employment_status_display }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Date of Joining</div><div>{{ employee.date_of_joining|date:"d M Y" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Date of Exit</div><div>{{ employee.date_of_exit|date:"d M Y"|default:"-" }}</div></div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">Contact & Statutory</div>
+            <div class="card-body row g-3">
+                <div class="col-md-4"><div class="text-muted small">Email</div><div>{{ employee.email|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Mobile</div><div>{{ employee.mobile|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Alternate Mobile</div><div>{{ employee.alternate_mobile|default:"-" }}</div></div>
+                <div class="col-md-3"><div class="text-muted small">Aadhaar</div><div>{{ employee.aadhaar|default:"-" }}</div></div>
+                <div class="col-md-3"><div class="text-muted small">PAN</div><div>{{ employee.pan|default:"-" }}</div></div>
+                <div class="col-md-3"><div class="text-muted small">UAN</div><div>{{ employee.uan|default:"-" }}</div></div>
+                <div class="col-md-3"><div class="text-muted small">ESIC</div><div>{{ employee.esic_number|default:"-" }}</div></div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">Bank & Salary</div>
+            <div class="card-body row g-3">
+                <div class="col-md-4"><div class="text-muted small">Bank</div><div>{{ employee.bank_name|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Account Holder</div><div>{{ employee.account_holder_name|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Account Number</div><div>{{ employee.bank_account_number|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">IFSC</div><div>{{ employee.ifsc_code|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Salary Structure</div><div>{{ employee.salary_structure.name|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Basic Salary</div><div>₹ {{ employee.basic_salary }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">PF Eligible</div><div>{% if employee.pf_eligible %}Yes{% else %}No{% endif %}</div></div>
+                <div class="col-md-4"><div class="text-muted small">ESI Eligible</div><div>{% if employee.esi_eligible %}Yes{% else %}No{% endif %}</div></div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header">Emergency Contact</div>
+            <div class="card-body row g-3">
+                <div class="col-md-4"><div class="text-muted small">Name</div><div>{{ employee.emergency_contact_name|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Phone</div><div>{{ employee.emergency_contact_phone|default:"-" }}</div></div>
+                <div class="col-md-4"><div class="text-muted small">Relation</div><div>{{ employee.emergency_contact_relation|default:"-" }}</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header">Documents</div>
+            <div class="card-body">
+                {% if employee.documents.all %}
+                    <ul class="list-group list-group-flush mb-3">
+                        {% for document in employee.documents.all %}
+                            <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-semibold">{{ document.title|default:document.get_document_type_display }}</div>
+                                    <div class="small text-muted">{{ document.uploaded_at|date:"d M Y" }}</div>
+                                </div>
+                                <a href="{{ document.file.url }}" class="btn btn-sm btn-outline-primary" target="_blank">View</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted">No documents uploaded yet.</p>
+                {% endif %}
+
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-2"><label class="form-label">Document Type</label>{{ document_form.document_type }}</div>
+                    <div class="mb-2"><label class="form-label">Title</label>{{ document_form.title }}</div>
+                    <div class="mb-3"><label class="form-label">File</label>{{ document_form.file }}</div>
+                    <button type="submit" class="btn btn-primary w-100">Upload Document</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

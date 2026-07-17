@@ -1,6 +1,7 @@
 from django.shortcuts import render
 
-from apps.employee.models import Department, Employee
+from apps.company.models import Department
+from apps.employee.models import Employee
 from apps.payroll.models import Payslip
 
 

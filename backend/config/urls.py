@@ -10,7 +10,7 @@ urlpatterns = [
     path('clients/', include('apps.clients.urls')),
     path('companies/', include('apps.company.urls')),
     path('', include('apps.company.organisation_urls')),
-    path('employee/', include('apps.employee.urls')),
+    path('employees/', include('apps.employee.urls')),
     path('attendance/', include('apps.attendance.urls')),
     path('payroll/', include('apps.payroll.urls')),
     path('reports/', include('apps.reports.urls')),

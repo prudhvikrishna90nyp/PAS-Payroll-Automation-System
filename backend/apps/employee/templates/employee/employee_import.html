@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Import Employees{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Import Employees</h2>
+        <p class="text-muted mb-0">Bulk upload employees from an Excel file for a selected company.</p>
+    </div>
+    <a href="{% url 'employees:employee_list' %}" class="btn btn-outline-secondary">Back to Employees</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <p class="mb-3">
+            Download the
+            <a href="{% url 'employees:employee_export' %}?template=1">import template</a>
+            and fill employee rows before uploading.
+        </p>
+
+        <form method="post" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Company</label>
+                    {{ form.company }}
+                    {% for error in form.company.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Excel File</label>
+                    {{ form.file }}
+                    {% for error in form.file.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    {% if form.file.help_text %}<div class="form-text">{{ form.file.help_text }}</div>{% endif %}
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Import Employees</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
