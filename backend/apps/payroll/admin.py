@@ -155,12 +155,15 @@ class PayrollRunAdmin(admin.ModelAdmin):
         'status',
         'pf_rule_set',
         'esi_rule_set',
+        'pt_rule_set',
         'created_by',
         'created_at',
     )
     list_filter = ('status', 'company', 'period__year')
     search_fields = ('company__company_name', 'notes')
-    autocomplete_fields = ('period', 'company', 'created_by', 'pf_rule_set', 'esi_rule_set')
+    autocomplete_fields = (
+        'period', 'company', 'created_by', 'pf_rule_set', 'esi_rule_set', 'pt_rule_set',
+    )
     readonly_fields = ('calculation_errors',)
     inlines = [PayrollResultInline]
 

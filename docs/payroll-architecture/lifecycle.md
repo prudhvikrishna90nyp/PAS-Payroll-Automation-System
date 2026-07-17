@@ -54,7 +54,7 @@ flowchart LR
 | 3. Period lock | `AttendancePeriod`: open → locked → processed; lock rebuilds monthly summaries | **Implemented (v0.6)** |
 | 4. Salary assignment | Component masters → structure lines → `EmployeeSalaryAssignment` (effective dating) | **Implemented (v0.7)** |
 | 5. Formula calculation | Safe AST formula engine + dependency order + rounding | **Implemented (v0.7)** |
-| 6. Statutory | `compliance.pf_engine` / `esi_engine` + `statutory.py` bridges | **EPF Implemented (Sprint 9.1)**; **ESI Implemented (Sprint 9.2)**; PT/TDS **Planned (9.3–9.4)** |
+| 6. Statutory | `compliance.pf_engine` / `esi_engine` / `pt_engine` + `statutory.py` bridges | **EPF Implemented (Sprint 9.1)**; **ESI Implemented (Sprint 9.2)**; **PT Implemented (Sprint 9.3)**; TDS **Planned (9.4)** |
 | 7. Net → payslip | `generate_payslip` writes `Payslip` + `PayslipItem`; skips if `finalized` | **Implemented (v0.7)** |
 | 8. Bank advice | Employee bank fields exist; dedicated NEFT/advice export | **Planned (v0.8+)** |
 | 9. Payroll period / run foundation | `PayrollPeriod` (Open/Closed, overlap checks), `PayrollRun` (Draft+status scaffold), `PayrollResult` / `PayrollResultComponent`, `PayrollAuditLog`; services under `apps/payroll/services/` | **Implemented (v0.8.1 foundation)** |

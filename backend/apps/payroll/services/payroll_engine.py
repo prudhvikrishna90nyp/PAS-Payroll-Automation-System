@@ -185,17 +185,32 @@ def calculate_run(run: PayrollRun, user=None) -> PayrollRun:
     employees = list(eligible_employees_for_run(run))
     attendance_map = load_attendance_for_run(run, employees=employees)
 
-    # Snapshot PF/ESI rule sets for the period end date (historical accuracy).
+    # Snapshot PF/ESI/PT rule sets for the period end date (historical accuracy).
+    # PT is state-specific: run.pt_rule_set stores the seeded company-primary
+    # (AP) rule when available; per-employee jurisdiction still drives calc via
+    # EmployeePTProfile and is snapshotted on PayrollPTResult.
     from apps.compliance.services.esi_rules import get_esi_rule_for_date, seed_default_esi_rule_set
     from apps.compliance.services.pf_rules import get_pf_rule_for_date, seed_default_pf_rule_set
+    from apps.compliance.services.pt_rules import (
+        AP_STATE_CODE,
+        get_pt_rule_for_state_and_date,
+        seed_ap_pt_rule_set,
+    )
 
     seed_default_pf_rule_set()
     seed_default_esi_rule_set()
+    seed_ap_pt_rule_set()
     pf_rule = get_pf_rule_for_date(run.period.end_date)
     esi_rule = get_esi_rule_for_date(run.period.end_date)
+    pt_rule = None
+    try:
+        pt_rule = get_pt_rule_for_state_and_date(AP_STATE_CODE, run.period.end_date)
+    except ValidationError:
+        pt_rule = None
     run.pf_rule_set = pf_rule
     run.esi_rule_set = esi_rule
-    run.save(update_fields=['pf_rule_set', 'esi_rule_set', 'updated_at'])
+    run.pt_rule_set = pt_rule
+    run.save(update_fields=['pf_rule_set', 'esi_rule_set', 'pt_rule_set', 'updated_at'])
 
     # Replace prior snapshots for unlocked recalculation.
     clear_run_results(run)
@@ -222,6 +237,7 @@ def calculate_run(run: PayrollRun, user=None) -> PayrollRun:
                 attendance=attendance_map.get(employee.pk),
                 pf_rule_set=pf_rule,
                 esi_rule_set=esi_rule,
+                pt_rule_set=None,  # per-employee state resolution in pt_engine
             )
             snapshot_employee_result(run, calc)
             transaction.savepoint_commit(sid)
@@ -264,6 +280,9 @@ def calculate_run(run: PayrollRun, user=None) -> PayrollRun:
             'errors': errors,
             'pf_rule_set': pf_rule.code,
             'esi_rule_set': esi_rule.code,
+            'pt_rule_set': (
+                f'{pt_rule.state_code}:{pt_rule.name}' if pt_rule else None
+            ),
         },
     )
     return run

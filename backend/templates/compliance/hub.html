@@ -2,7 +2,7 @@
 
 {% block title %}Statutory Compliance{% endblock %}
 {% block page_heading %}Statutory Compliance{% endblock %}
-{% block page_subtitle %}EPF / ESI registers and contribution exports for calculated payroll runs{% endblock %}
+{% block page_subtitle %}EPF / ESI / Professional Tax registers and exports for calculated payroll runs{% endblock %}
 
 {% block content %}
 <div class="card shadow-sm mb-3">
@@ -13,6 +13,7 @@
             <a class="btn btn-sm btn-outline-secondary" href="{% url 'payroll:report_index' %}">Payroll Reports</a>
             <a class="btn btn-sm btn-outline-secondary" href="/admin/compliance/pfruleset/">PF Rule Sets</a>
             <a class="btn btn-sm btn-outline-secondary" href="/admin/compliance/esiruleset/">ESI Rule Sets</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/admin/compliance/professionaltaxruleset/">PT Rule Sets</a>
         </div>
     </div>
 </div>
@@ -29,8 +30,10 @@
                     <th>Status</th>
                     <th>PF Rule</th>
                     <th>ESI Rule</th>
+                    <th>PT Rule</th>
                     <th>EPF Exports</th>
                     <th>ESI Exports</th>
+                    <th>PT Exports</th>
                 </tr>
             </thead>
             <tbody>
@@ -42,6 +45,7 @@
                     <td>{{ run.get_status_display }}</td>
                     <td>{{ run.pf_rule_set.code|default:"—" }}</td>
                     <td>{{ run.esi_rule_set.code|default:"—" }}</td>
+                    <td>{% if run.pt_rule_set %}{{ run.pt_rule_set.state_code }}{% else %}—{% endif %}</td>
                     <td class="small">
                         <a href="{% url 'compliance:pf_report_export' run.pk 'pf_register' %}">PF Register</a>
                         · <a href="{% url 'compliance:pf_report_export' run.pk 'ee_contribution' %}">EE</a>
@@ -58,10 +62,16 @@
                         · <a href="{% url 'compliance:esi_report_export' run.pk 'missing_ip' %}">Missing IP</a>
                         · <a href="{% url 'compliance:esi_contribution_export' run.pk %}">Contribution xlsx</a>
                     </td>
+                    <td class="small">
+                        <a href="{% url 'compliance:pt_report_export' run.pk 'pt_register' %}">PT Register</a>
+                        · <a href="{% url 'compliance:pt_report_export' run.pk 'pt_monthly_summary' %}">Summary</a>
+                        · <a href="{% url 'compliance:pt_report_export' run.pk 'missing_work_state' %}">Missing state</a>
+                        · <a href="{% url 'compliance:pt_challan_export' run.pk %}">Challan xlsx</a>
+                    </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="text-muted">No calculated payroll runs available yet.</td>
+                    <td colspan="10" class="text-muted">No calculated payroll runs available yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -76,5 +86,10 @@
     <br>
     <strong>ESI:</strong> Register, monthly summary, and missing IP report reconcile from
     <code>PayrollESIResult</code> snapshots. Contribution export is separate from calculation.
+    <br>
+    <strong>Professional Tax:</strong> Jurisdiction is employee work-state
+    (<code>EmployeePTProfile.state_code</code>), not company address alone. Register, summary,
+    missing-state, and challan exports reconcile from <code>PayrollPTResult</code> snapshots.
+    AP special month = February.
 </div>
 {% endblock %}

@@ -1,4 +1,4 @@
-"""Statutory contribution hooks — EPF + ESI via compliance engines; PT/TDS stubs."""
+"""Statutory contribution hooks — EPF + ESI + PT via compliance engines; TDS stub."""
 
 from __future__ import annotations
 
@@ -14,6 +14,11 @@ from apps.compliance.services.pf_engine import (
     PFCalculationResult,
     build_pf_component_rows,
     calculate_pf,
+)
+from apps.compliance.services.pt_engine import (
+    PTCalculationResult,
+    build_pt_component_rows,
+    calculate_pt,
 )
 
 
@@ -38,7 +43,7 @@ def calculate_employer_esi(gross: Decimal, *, rate: Decimal = Decimal('0.0325'))
 
 
 def calculate_professional_tax(gross: Decimal, *, state: str = '') -> Decimal:
-    """Professional tax stub — state slabs in Sprint 9.3."""
+    """Legacy helper — prefer ``calculate_pt`` for full PT (Sprint 9.3)."""
     _ = gross, state
     return Decimal('0.00')
 
@@ -87,6 +92,22 @@ def compute_run_esi(
     )
 
 
+def compute_run_pt(
+    *,
+    employee,
+    period,
+    earning_rows: list[dict],
+    rule_set=None,
+) -> PTCalculationResult:
+    """Full Professional Tax calculation for payroll engine integration."""
+    return calculate_pt(
+        employee=employee,
+        period=period,
+        earning_rows=earning_rows,
+        rule_set=rule_set,
+    )
+
+
 def statutory_component_rows(
     *,
     employee,
@@ -95,11 +116,12 @@ def statutory_component_rows(
     gross: Decimal,
     rule_set=None,
     esi_rule_set=None,
+    pt_rule_set=None,
     ncp_days: Decimal | None = None,
     payable_days: Decimal | None = None,
     calendar_days: Decimal | None = None,
-) -> tuple[list[dict], PFCalculationResult, ESICalculationResult]:
-    """Build PF + ESI (+ stub PT/TDS) component rows and return PF/ESI results."""
+) -> tuple[list[dict], PFCalculationResult, ESICalculationResult, PTCalculationResult]:
+    """Build PF + ESI + PT (+ stub TDS) component rows and return calc results."""
     from apps.payroll.models import ComponentType
 
     pf = compute_run_pf(
@@ -117,27 +139,25 @@ def statutory_component_rows(
         payable_days=payable_days,
         calendar_days=calendar_days,
     )
+    pt = compute_run_pt(
+        employee=employee,
+        period=period,
+        earning_rows=earning_rows,
+        rule_set=pt_rule_set,
+    )
     rows = build_pf_component_rows(pf)
     rows.extend(build_esi_component_rows(esi))
+    rows.extend(build_pt_component_rows(pt))
 
-    # Sprint 9.3–9.4 placeholders (zero amounts)
-    rows.extend([
-        {
-            'component_code': 'STAT_PT',
-            'component_name': 'Professional Tax (planned Sprint 9.3)',
-            'component_type': ComponentType.DEDUCTION,
-            'amount': calculate_professional_tax(gross),
-            'calculation_detail': {'placeholder': True, 'sprint': '9.3'},
-        },
-        {
-            'component_code': 'STAT_TDS',
-            'component_name': 'TDS (planned Sprint 9.4)',
-            'component_type': ComponentType.DEDUCTION,
-            'amount': calculate_tds(gross),
-            'calculation_detail': {'placeholder': True, 'sprint': '9.4'},
-        },
-    ])
-    return rows, pf, esi
+    # Sprint 9.4 placeholder (zero amount)
+    rows.append({
+        'component_code': 'STAT_TDS',
+        'component_name': 'TDS (planned Sprint 9.4)',
+        'component_type': ComponentType.DEDUCTION,
+        'amount': calculate_tds(gross),
+        'calculation_detail': {'placeholder': True, 'sprint': '9.4'},
+    })
+    return rows, pf, esi, pt
 
 
 def statutory_summary(
