@@ -17,3 +17,11 @@ def status_filter(queryset, request):
     if status == 'inactive':
         return queryset.filter(is_active=False)
     return queryset
+
+
+def format_user_error(exc) -> str:
+    """Return a clean user-facing message (avoids ValidationError list repr)."""
+    messages = getattr(exc, 'messages', None)
+    if messages:
+        return '; '.join(str(m) for m in messages)
+    return str(exc)

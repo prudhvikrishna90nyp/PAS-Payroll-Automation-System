@@ -38,7 +38,7 @@ DELETE_EMPLOYEE = 'employee.delete_employee'
 
 
 def seed_role_groups():
-    """Create or update PAS role groups with employee-related permissions."""
+    """Merge employee-related permissions into PAS role groups (does not wipe others)."""
     from .models import Employee, EmployeeDocument, SalaryStructure
 
     model_map = {
@@ -48,16 +48,16 @@ def seed_role_groups():
     }
     for group_name, model_perms in ROLE_GROUPS.items():
         group, _ = Group.objects.get_or_create(name=group_name)
-        permissions = []
+        permissions = list(group.permissions.all())
         for model_key, actions in model_perms.items():
             content_type = ContentType.objects.get_for_model(model_map[model_key])
             for action in actions:
                 codename = f'{action}_{model_key}'
                 try:
-                    permissions.append(
-                        Permission.objects.get(content_type=content_type, codename=codename)
-                    )
+                    perm = Permission.objects.get(content_type=content_type, codename=codename)
                 except Permission.DoesNotExist:
                     continue
+                if perm not in permissions:
+                    permissions.append(perm)
         group.permissions.set(permissions)
     return list(ROLE_GROUPS.keys())

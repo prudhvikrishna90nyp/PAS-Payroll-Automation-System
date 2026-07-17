@@ -6,6 +6,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [1.0.0-rc1] — 2026-07-17
+
+### Fixed
+- Legacy payslip list/detail/PDF/Excel/generate now require login + payslip permissions
+- Company, client, branch, department, and designation mutate/archive require model permissions
+- Payroll reopen returns Locked runs to **Calculated** so recalculation works
+- Employee role-group seed merges permissions (no longer wipes payroll/attendance grants)
+- ValidationError user messages no longer show Python list `repr`
+
+### Added
+- Compliance export permissions seeded into Admin / Payroll / HR / Super Admin
+- Company/client organisation permission seeding via `post_migrate`
+- RC1 regression tests (auth, seeds, volume smoke) and release docs under `docs/`
+
+### Notes
+- See `docs/RELEASE_NOTES_v1.0.0-rc1.md`, `docs/DEPLOYMENT_CHECKLIST.md`, `docs/BACKUP_AND_RESTORE.md`
+
+---
+
 ## [0.9.4] — 2026-07-17
 
 ### Added

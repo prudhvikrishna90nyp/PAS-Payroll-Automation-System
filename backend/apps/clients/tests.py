@@ -43,9 +43,22 @@ class ClientModelTests(TestCase):
 
 class ClientViewTests(TestCase):
     def setUp(self):
+        from django.contrib.auth.models import Permission
+
         self.user = get_user_model().objects.create_user(
             username='testuser',
             password='TestPassword123!',
+        )
+        self.user.user_permissions.add(
+            *Permission.objects.filter(
+                content_type__app_label='clients',
+                codename__in=[
+                    'view_client',
+                    'add_client',
+                    'change_client',
+                    'delete_client',
+                ],
+            )
         )
 
         self.client.login(

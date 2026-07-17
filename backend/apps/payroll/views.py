@@ -2,9 +2,10 @@ from decimal import Decimal
 from io import BytesIO
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.auth.views import redirect_to_login
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -14,6 +15,8 @@ from django.views import View
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from openpyxl import Workbook
+
+from apps.common.utils import format_user_error
 
 from apps.company.models import Branch, Company, Department
 from apps.employee.models import Employee
@@ -67,6 +70,8 @@ from .permissions import (
     VIEW_RUN,
     VIEW_STRUCTURE,
 )
+
+ADD_PAYSLIP = 'payroll.add_payslip'
 from .reports import REPORT_BUILDERS
 from .services import generate_payslips_for_period
 from .services.approval import approve_run, mark_reviewed
@@ -121,6 +126,8 @@ class PayrollNavMixin:
 
 # ---- Payslips (legacy function views) ----
 
+@login_required
+@permission_required(VIEW_PAYSLIP, raise_exception=True)
 def payslip_list(request):
     pay_periods = PayPeriod.objects.all()
     selected_period_id = request.GET.get('period')
@@ -141,6 +148,8 @@ def payslip_list(request):
     )
 
 
+@login_required
+@permission_required(VIEW_PAYSLIP, raise_exception=True)
 def payslip_detail(request, pk):
     payslip = get_object_or_404(
         Payslip.objects.select_related('employee', 'pay_period').prefetch_related('items'),
@@ -160,6 +169,8 @@ def payslip_detail(request, pk):
     )
 
 
+@login_required
+@permission_required(VIEW_PAYSLIP, raise_exception=True)
 def payslip_pdf(request, pk):
     try:
         from weasyprint import HTML
@@ -190,6 +201,8 @@ def payslip_pdf(request, pk):
     return response
 
 
+@login_required
+@permission_required(VIEW_PAYSLIP, raise_exception=True)
 def payslip_export_excel(request):
     period_id = request.GET.get('period')
     payslips = Payslip.objects.select_related('employee', 'pay_period')
@@ -232,6 +245,8 @@ def payslip_export_excel(request):
     return response
 
 
+@login_required
+@permission_required(ADD_PAYSLIP, raise_exception=True)
 @require_POST
 def generate_period_payslips(request, period_id):
     pay_period = get_object_or_404(PayPeriod, pk=period_id)
@@ -852,8 +867,10 @@ class PeriodCloseView(PayrollLoginPermissionMixin, View):
         try:
             close_period(period, user=request.user)
             messages.success(request, f'Period {period} closed.')
+        except ValidationError as exc:
+            messages.error(request, format_user_error(exc))
         except Exception as exc:
-            messages.error(request, str(exc))
+            messages.error(request, format_user_error(exc))
         return redirect('payroll:period_detail', pk=pk)
 
 
@@ -982,10 +999,10 @@ class RunCalculateView(PayrollLoginPermissionMixin, View):
                     request,
                     f'Payroll run #{run.run_number} calculated successfully.',
                 )
-        except (LockedRunError, RunNotCalculableError, PayrollCalculationError) as exc:
-            messages.error(request, str(exc))
+        except (LockedRunError, RunNotCalculableError, PayrollCalculationError, ValidationError) as exc:
+            messages.error(request, format_user_error(exc))
         except Exception as exc:
-            messages.error(request, f'Calculation failed: {exc}')
+            messages.error(request, f'Calculation failed: {format_user_error(exc)}')
         return redirect('payroll:run_detail', pk=pk)
 
 
@@ -1006,10 +1023,10 @@ class _RunTransitionView(PayrollLoginPermissionMixin, View):
             messages.success(request, self.success_message.format(run=run))
         except PermissionDenied:
             raise
-        except (InvalidTransitionError, RunNotReadyError, PayrollWorkflowError) as exc:
-            messages.error(request, str(exc))
+        except (InvalidTransitionError, RunNotReadyError, PayrollWorkflowError, ValidationError) as exc:
+            messages.error(request, format_user_error(exc))
         except Exception as exc:
-            messages.error(request, f'Workflow action failed: {exc}')
+            messages.error(request, f'Workflow action failed: {format_user_error(exc)}')
         return redirect('payroll:run_detail', pk=pk)
 
 

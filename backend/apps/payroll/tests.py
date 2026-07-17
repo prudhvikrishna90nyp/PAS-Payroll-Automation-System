@@ -1147,11 +1147,19 @@ class PayrollApprovalLockingTests(PayrollTestMixin, TestCase):
             reopen_run(self.run, user=self.superuser, remarks='')
         reopen_run(self.run, user=self.superuser, remarks='Correct bank file')
         self.run.refresh_from_db()
-        self.assertEqual(self.run.status, PayrollRunStatus.APPROVED)
+        self.assertEqual(self.run.status, PayrollRunStatus.CALCULATED)
+        self.assertTrue(self.run.is_calculable)
+        calculate_run(self.run, user=self.superuser)
+        self.run.refresh_from_db()
+        self.assertIn(self.run.status, {
+            PayrollRunStatus.CALCULATED,
+            PayrollRunStatus.INCOMPLETE,
+        })
         reopen_log = PayrollAuditLog.objects.filter(run=self.run, action='run_reopen').first()
         self.assertIsNotNone(reopen_log)
         self.assertEqual(reopen_log.details['remarks'], 'Correct bank file')
         self.assertTrue(reopen_log.details.get('reopened_by_superuser'))
+        self.assertEqual(reopen_log.details.get('new_status'), PayrollRunStatus.CALCULATED)
 
     def test_workflow_ui_buttons_and_audit_trail(self):
         self._calculate()
