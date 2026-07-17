@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Shift Assignments{% endblock %}
+{% block content %}
+{% include "attendance/_nav.html" %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Shift Assignments</h2>
+        <p class="text-muted mb-0">Map employees to shifts for automatic late/OT calculation.</p>
+    </div>
+    <a href="{% url 'attendance:shiftassignment_add' %}" class="btn btn-primary">Assign Shift</a>
+</div>
+<div class="card shadow-sm">
+    <div class="card-body table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light"><tr><th>Employee</th><th>Shift</th><th>From</th><th>To</th></tr></thead>
+            <tbody>
+            {% for item in assignments %}
+            <tr>
+                <td>{{ item.employee.employee_code }} — {{ item.employee.full_name }}</td>
+                <td>{{ item.shift.shift_code }}</td>
+                <td>{{ item.effective_from }}</td>
+                <td>{{ item.effective_to|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-muted">No shift assignments yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

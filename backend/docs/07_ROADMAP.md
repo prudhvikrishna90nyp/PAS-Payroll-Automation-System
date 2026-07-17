@@ -8,6 +8,7 @@
 - [x] Employee and department management
 - [x] Pay period and payslip generation
 - [x] Attendance records
+- [x] Attendance Management (shifts, holidays, periods, daily CRUD, import, reports)
 - [x] Shared Bootstrap layout (sidebar, navbar, dashboard)
 - [x] PAN / GSTIN validation, soft delete, pagination
 - [x] Admin panel, Excel export, PDF payslips
@@ -19,8 +20,8 @@
 
 - [ ] React SPA in `frontend/`
 - [ ] REST API (`/api/v1/`)
-- [ ] Employee CRUD from web UI
-- [ ] Attendance marking from web UI
+- [x] Employee CRUD from web UI
+- [x] Attendance marking from web UI
 - [ ] Role-based access (HR, Admin, Employee)
 - [ ] Payslip approval workflow (draft → finalized)
 - [ ] Email payslips to employees

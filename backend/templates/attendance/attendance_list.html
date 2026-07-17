@@ -1,53 +1,154 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Attendance - PAS{% endblock %}
-{% block page_heading %}Attendance{% endblock %}
-{% block page_subtitle %}Track employee attendance records{% endblock %}
+{% block title %}Attendance Management{% endblock %}
 
 {% block content %}
-<div class="row g-3 mb-4">
-    <div class="col-sm-6 col-md-4 col-xl-3">
+{% include "attendance/_nav.html" %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Daily Attendance</h2>
+        <p class="text-muted mb-0">Record and filter daily attendance by employee, company, period and status.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'attendance:attendance_import' %}" class="btn btn-outline-secondary">Import</a>
+        <a href="{% url 'attendance:attendance_export' %}{% if querystring %}?{{ querystring }}{% endif %}" class="btn btn-outline-secondary">Export Excel</a>
+        <a href="{% url 'attendance:attendance_add' %}" class="btn btn-primary">Add Attendance</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-sm-6 col-md-3">
         <div class="card border-0 shadow-sm">
             <div class="card-body">
                 <div class="text-muted small">Active Employees</div>
-                <div class="fs-3 fw-bold text-primary">{{ employee_count }}</div>
+                <div class="fs-4 fw-bold text-primary">{{ employee_count }}</div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card border-0 shadow-sm">
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Search</label>
+                <input type="text" name="q" value="{{ search_query }}" class="form-control" placeholder="Code, name, remarks">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Client</label>
+                <select name="client" class="form-select">
+                    <option value="">All</option>
+                    {% for client in clients %}
+                        <option value="{{ client.pk }}" {% if client_filter == client.pk|stringformat:"s" %}selected{% endif %}>{{ client.client_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Company</label>
+                <select name="company" class="form-select">
+                    <option value="">All</option>
+                    {% for company in companies %}
+                        <option value="{{ company.pk }}" {% if company_filter == company.pk|stringformat:"s" %}selected{% endif %}>{{ company.company_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Employee</label>
+                <select name="employee" class="form-select">
+                    <option value="">All</option>
+                    {% for employee in employees %}
+                        <option value="{{ employee.pk }}" {% if employee_filter == employee.pk|stringformat:"s" %}selected{% endif %}>{{ employee.employee_code }} — {{ employee.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All</option>
+                    {% for value, label in statuses %}
+                        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Period</label>
+                <select name="period" class="form-select">
+                    <option value="">All</option>
+                    {% for period in periods %}
+                        <option value="{{ period.pk }}" {% if period_filter == period.pk|stringformat:"s" %}selected{% endif %}>{{ period.company.company_name }} {{ period.month|stringformat:"02d" }}/{{ period.year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">From</label>
+                <input type="date" name="date_from" value="{{ date_from }}" class="form-control">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">To</label>
+                <input type="date" name="date_to" value="{{ date_to }}" class="form-control">
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Apply filters</button>
+                <a href="{% url 'attendance:attendance_list' %}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
     <div class="card-body">
         {% if records %}
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th>Employee</th>
                         <th>Date</th>
+                        <th>Employee</th>
+                        <th>Company</th>
                         <th>Status</th>
-                        <th>Check In</th>
-                        <th>Check Out</th>
+                        <th>Shift</th>
+                        <th>In</th>
+                        <th>Out</th>
+                        <th>OT</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for record in records %}
                     <tr>
-                        <td>{{ record.employee.full_name }}</td>
-                        <td>{{ record.date }}</td>
+                        <td>{{ record.attendance_date }}</td>
+                        <td>{{ record.employee.employee_code }} — {{ record.employee.full_name }}</td>
+                        <td>{{ record.employee.company.company_name }}</td>
                         <td>{{ record.get_status_display }}</td>
+                        <td>{{ record.shift.shift_code|default:"—" }}</td>
                         <td>{{ record.check_in|default:"—" }}</td>
                         <td>{{ record.check_out|default:"—" }}</td>
+                        <td>{{ record.overtime_hours }}</td>
+                        <td class="text-end">
+                            <a href="{% url 'attendance:attendance_detail' record.pk %}" class="btn btn-sm btn-outline-primary">View</a>
+                            <a href="{% url 'attendance:attendance_edit' record.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        {% if page_obj.has_other_pages %}
+        <nav class="mt-3">
+            <ul class="pagination mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">Previous</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
+                {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">Next</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
         {% else %}
-        <p class="text-muted mb-0">
-            No attendance records yet.
-            <a href="/admin/attendance/attendancerecord/add/">Add attendance</a> in the admin.
-        </p>
+        <p class="text-muted mb-0">No attendance records found. <a href="{% url 'attendance:attendance_add' %}">Add attendance</a> or <a href="{% url 'attendance:attendance_import' %}">import Excel</a>.</p>
         {% endif %}
     </div>
 </div>

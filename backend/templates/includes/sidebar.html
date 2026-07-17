@@ -49,7 +49,7 @@
         >
             <i class="bi bi-people me-2"></i> Employees
         </a>
-        <a href="{% url 'attendance_list' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'attendance_list' %}active{% endif %}">
+        <a href="{% url 'attendance:attendance_list' %}" class="list-group-item list-group-item-action {% if request.resolver_match.namespace == 'attendance' %}active{% endif %}">
             <i class="bi bi-calendar-check me-2"></i> Attendance
         </a>
         <a href="{% url 'payslip_list' %}" class="list-group-item list-group-item-action {% if 'payslip' in request.resolver_match.url_name %}active{% endif %}">

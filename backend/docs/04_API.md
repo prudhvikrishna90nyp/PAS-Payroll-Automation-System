@@ -87,11 +87,21 @@ Currently HTML views only. REST API planned for Phase 2 under `/api/v1/`.
 
 ---
 
-## Attendance
+## Attendance (`attendance` namespace — login + model permissions)
 
 | Method | URL | Name | Auth | Description |
 |--------|-----|------|------|-------------|
-| GET | `/attendance/` | attendance_list | Open | Recent attendance records |
+| GET | `/attendance/` | attendance:attendance_list | Perm | Daily attendance list/filters |
+| GET/POST | `/attendance/add/` | attendance:attendance_add | Perm | Create daily attendance |
+| GET/POST | `/attendance/<id>/edit/` | attendance:attendance_edit | Perm | Edit daily attendance |
+| GET/POST | `/attendance/import/` | attendance:attendance_import | Perm | Excel import + error log |
+| GET | `/attendance/export/` | attendance:attendance_export | Perm | Excel export / template |
+| GET | `/attendance/shifts/` | attendance:shift_list | Perm | Shift master |
+| GET | `/attendance/holidays/` | attendance:holiday_list | Perm | Holiday calendar |
+| GET | `/attendance/periods/` | attendance:period_list | Perm | Attendance periods |
+| POST | `/attendance/periods/<id>/transition/` | attendance:period_transition | Perm | Open/lock/reopen/processed |
+| GET | `/attendance/reports/` | attendance:report_index | Perm | Report launcher |
+| GET | `/attendance/reports/<type>/` | attendance:report_download | Perm | Excel reports |
 
 ---
 

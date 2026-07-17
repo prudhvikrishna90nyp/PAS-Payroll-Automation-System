@@ -33,7 +33,7 @@ INSTALLED_APPS = [
     'apps.clients',
     'apps.company',
     'apps.employee.apps.EmployeeConfig',
-    'apps.attendance',
+    'apps.attendance.apps.AttendanceConfig',
     'apps.leave',
     'apps.payroll',
     'apps.reports',

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Edit Holiday{% else %}Add Holiday{% endif %}{% endblock %}
+{% block content %}
+{% include "attendance/_nav.html" %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{% if object %}Edit Holiday{% else %}Add Holiday{% endif %}</h2>
+    <a href="{% url 'attendance:holiday_list' %}" class="btn btn-outline-secondary">Back</a>
+</div>
+<form method="post" novalidate>
+    {% csrf_token %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-body row g-3">
+            {% for field in form %}
+            <div class="col-md-4">
+                {% if field.field.widget.input_type == 'checkbox' %}
+                <div class="form-check mt-4">{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+                {% else %}
+                <label class="form-label">{{ field.label }}</label>{{ field }}
+                {% endif %}
+                {% for e in field.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <button class="btn btn-primary" type="submit">Save</button>
+</form>
+{% endblock %}

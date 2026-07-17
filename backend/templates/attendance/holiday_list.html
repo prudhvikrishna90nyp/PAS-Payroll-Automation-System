@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Holiday Calendar{% endblock %}
+{% block content %}
+{% include "attendance/_nav.html" %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Holiday Calendar</h2>
+        <p class="text-muted mb-0">Company holiday calendar for attendance and payroll.</p>
+    </div>
+    <a href="{% url 'attendance:holiday_add' %}" class="btn btn-primary">Add Holiday</a>
+</div>
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3"><label class="form-label">Search</label><input class="form-control" name="q" value="{{ search_query }}"></div>
+            <div class="col-md-3">
+                <label class="form-label">Company</label>
+                <select name="company" class="form-select">
+                    <option value="">All</option>
+                    {% for company in companies %}<option value="{{ company.pk }}" {% if company_filter == company.pk|stringformat:"s" %}selected{% endif %}>{{ company.company_name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2"><label class="form-label">Year</label><input class="form-control" name="year" value="{{ year_filter }}" placeholder="2026"></div>
+            <div class="col-md-2">
+                <label class="form-label">Type</label>
+                <select name="holiday_type" class="form-select">
+                    <option value="">All</option>
+                    {% for value, label in holiday_types %}<option value="{{ value }}" {% if holiday_type_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100" type="submit">Filter</button></div>
+        </form>
+    </div>
+</div>
+<div class="card shadow-sm">
+    <div class="card-body table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light"><tr><th>Date</th><th>Name</th><th>Type</th><th>Company</th><th></th></tr></thead>
+            <tbody>
+            {% for holiday in holidays %}
+            <tr>
+                <td>{{ holiday.holiday_date }}</td>
+                <td>{{ holiday.holiday_name }}</td>
+                <td>{{ holiday.get_holiday_type_display }}</td>
+                <td>{{ holiday.company.company_name }}</td>
+                <td class="text-end">
+                    <a class="btn btn-sm btn-outline-primary" href="{% url 'attendance:holiday_detail' holiday.pk %}">View</a>
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'attendance:holiday_edit' holiday.pk %}">Edit</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-muted">No holidays yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

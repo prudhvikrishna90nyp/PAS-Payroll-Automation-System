@@ -26,7 +26,9 @@ Client
   └── Company
         └── Branch
 
-Department ──< Employee ──< AttendanceRecord
+Department ──< Employee ──< Attendance
+Company ──< Shift / Holiday / AttendancePeriod
+Employee ──< WeeklyOff / ShiftAssignment / AttendanceMonthlySummary
                   │
                   └──< Payslip >── PayPeriod
                            │
@@ -150,14 +152,23 @@ Department ──< Employee ──< AttendanceRecord
 
 ## attendance app
 
-### AttendanceRecord
+### Shift / Holiday / AttendancePeriod
+Company-scoped masters. Period status: `open` / `locked` / `processed` (unique company+month+year).
 
+### Attendance (daily)
 | Column | Type |
 |--------|------|
 | employee_id | FK → Employee |
-| date | DateField |
-| status | present / absent / leave / half_day |
+| attendance_date | DateField |
+| shift_id | FK → Shift (nullable) |
+| status | P / A / H / WO / CL / SL / EL / LOP / HD / OD |
 | check_in, check_out | TimeField |
-| notes | TextField |
+| worked_hours, overtime_hours | Decimal |
+| late_minutes, early_exit_minutes | Integer |
+| remarks | TextField |
+| approved | Boolean |
 
-Unique: `(employee, date)`
+Unique: `(employee, attendance_date)`
+
+### WeeklyOff / ShiftAssignment / AttendanceMonthlySummary
+Employee-scoped offs/assignments; monthly summary feeds payroll (present/absent/leave/WO/holiday/HD/OT/late/LOP).

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Import Attendance{% endblock %}
+{% block content %}
+{% include "attendance/_nav.html" %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Import Attendance</h2>
+        <p class="text-muted mb-0">Bulk upload daily attendance. Period must be Open for the row date.</p>
+    </div>
+    <a href="{% url 'attendance:attendance_list' %}" class="btn btn-outline-secondary">Back</a>
+</div>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <p class="mb-3">Download the <a href="{% url 'attendance:attendance_export' %}?template=1">import template</a> (Employee Code, Date, In, Out, Status, OT).</p>
+        <form method="post" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="row g-3">
+                <div class="col-md-6"><label class="form-label">Company</label>{{ form.company }}{% for e in form.company.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+                <div class="col-md-6"><label class="form-label">Excel File</label>{{ form.file }}{% for e in form.file.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+            </div>
+            <div class="mt-4"><button type="submit" class="btn btn-primary">Import Attendance</button></div>
+        </form>
+    </div>
+</div>
+{% if import_errors %}
+<div class="card shadow-sm border-warning">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Import issues ({{ import_errors|length }})</span>
+        <form method="post" class="m-0">{% csrf_token %}<input type="hidden" name="download_errors" value="1"><button class="btn btn-sm btn-outline-dark" type="submit">Download error log</button></form>
+    </div>
+    <div class="card-body">
+        {% if created_count %}<p class="text-success mb-2">{{ created_count }} created.</p>{% endif %}
+        {% if updated_count %}<p class="text-success mb-2">{{ updated_count }} updated.</p>{% endif %}
+        <ul class="mb-0">{% for error in import_errors|slice:":20" %}<li class="small">{{ error }}</li>{% endfor %}</ul>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

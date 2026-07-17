@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Attendance Reports{% endblock %}
+{% block content %}
+{% include "attendance/_nav.html" %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Attendance Reports</h2>
+        <p class="text-muted mb-0">Excel downloads for registers, late, OT, absentee, weekly offs, holidays and summary.</p>
+    </div>
+</div>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3" id="reportFilters">
+            <div class="col-md-3">
+                <label class="form-label">Company</label>
+                <select name="company" class="form-select">
+                    <option value="">All</option>
+                    {% for company in companies %}<option value="{{ company.pk }}" {% if company_filter == company.pk|stringformat:"s" %}selected{% endif %}>{{ company.company_name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Period</label>
+                <select name="period" class="form-select">
+                    <option value="">All</option>
+                    {% for period in periods %}<option value="{{ period.pk }}" {% if period_filter == period.pk|stringformat:"s" %}selected{% endif %}>{{ period.company.company_name }} {{ period.month|stringformat:"02d" }}/{{ period.year }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2"><label class="form-label">From</label><input type="date" name="date_from" value="{{ date_from }}" class="form-control"></div>
+            <div class="col-md-2"><label class="form-label">To</label><input type="date" name="date_to" value="{{ date_to }}" class="form-control"></div>
+            <div class="col-md-2"><label class="form-label">Year</label><input name="year" value="{{ year_filter }}" class="form-control" placeholder="Holiday year"></div>
+        </form>
+    </div>
+</div>
+<div class="row g-3">
+    {% for key, label in reports %}
+    {% endfor %}
+    <div class="col-md-4"><a class="btn btn-outline-dark w-100" href="{% url 'attendance:report_download' 'daily' %}?company={{ company_filter }}&period={{ period_filter }}&date_from={{ date_from }}&date_to={{ date_to }}">Daily Register</a></div>
+    <div class="col-md-4"><a class="btn btn-outline-dark w-100" href="{% url 'attendance:report_download' 'monthly' %}?company={{ company_filter }}&period={{ period_filter }}">Monthly Register</a></div>
+    <div class="col-md-4"><a class="btn btn-outline-dark w-100" href="{% url 'attendance:report_download' 'late' %}?company={{ company_filter }}&date_from={{ date_from }}&date_to={{ date_to }}">Late Coming</a></div>
+    <div class="col-md-4"><a class="btn btn-outline-dark w-100" href="{% url 'attendance:report_download' 'ot' %}?company={{ company_filter }}&date_from={{ date_from }}&date_to={{ date_to }}">Overtime</a></div>
+    <div class="col-md-4"><a class="btn btn-outline-dark w-100" href="{% url 'attendance:report_download' 'absentee' %}?company={{ company_filter }}&date_from={{ date_from }}&date_to={{ date_to }}">Absentee</a></div>
+    <div class="col-md-4"><a class="btn btn-outline-dark w-100" href="{% url 'attendance:report_download' 'weekly_off' %}?company={{ company_filter }}">Weekly Off</a></div>
+    <div class="col-md-4"><a class="btn btn-outline-dark w-100" href="{% url 'attendance:report_download' 'holiday' %}?company={{ company_filter }}&year={{ year_filter }}">Holiday</a></div>
+    <div class="col-md-4"><a class="btn btn-outline-dark w-100" href="{% url 'attendance:report_download' 'summary' %}?company={{ company_filter }}&date_from={{ date_from }}&date_to={{ date_to }}">Summary</a></div>
+</div>
+{% endblock %}

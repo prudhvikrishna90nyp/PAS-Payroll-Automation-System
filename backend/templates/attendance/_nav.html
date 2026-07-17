@@ -1,0 +1,14 @@
+<div class="card shadow-sm mb-3">
+    <div class="card-body py-3">
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-sm {% if request.resolver_match.url_name == 'attendance_list' %}btn-primary{% else %}btn-outline-dark{% endif %}" href="{% url 'attendance:attendance_list' %}">Daily Attendance</a>
+            <a class="btn btn-sm {% if 'shift' in request.resolver_match.url_name and 'assignment' not in request.resolver_match.url_name %}btn-primary{% else %}btn-outline-dark{% endif %}" href="{% url 'attendance:shift_list' %}">Shifts</a>
+            <a class="btn btn-sm {% if 'holiday' in request.resolver_match.url_name %}btn-primary{% else %}btn-outline-dark{% endif %}" href="{% url 'attendance:holiday_list' %}">Holidays</a>
+            <a class="btn btn-sm {% if 'period' in request.resolver_match.url_name %}btn-primary{% else %}btn-outline-dark{% endif %}" href="{% url 'attendance:period_list' %}">Periods</a>
+            <a class="btn btn-sm {% if 'weeklyoff' in request.resolver_match.url_name %}btn-primary{% else %}btn-outline-dark{% endif %}" href="{% url 'attendance:weeklyoff_list' %}">Weekly Offs</a>
+            <a class="btn btn-sm {% if 'shiftassignment' in request.resolver_match.url_name %}btn-primary{% else %}btn-outline-dark{% endif %}" href="{% url 'attendance:shiftassignment_list' %}">Shift Assignments</a>
+            <a class="btn btn-sm {% if request.resolver_match.url_name == 'attendance_import' %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{% url 'attendance:attendance_import' %}">Import</a>
+            <a class="btn btn-sm {% if 'report' in request.resolver_match.url_name %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{% url 'attendance:report_index' %}">Reports</a>
+        </div>
+    </div>
+</div>

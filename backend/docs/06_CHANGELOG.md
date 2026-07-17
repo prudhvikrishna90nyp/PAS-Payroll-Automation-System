@@ -8,7 +8,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- **Attendance Management (Sprint 6 / v0.6.0 candidate)** on `feature/attendance-management`
+  - Shift, Holiday, AttendancePeriod, Attendance, WeeklyOff, ShiftAssignment, AttendanceMonthlySummary
+  - Period open/lock/reopen/processed with edit enforcement
+  - Daily attendance CRUD, filters, Excel import/export, Excel reports
+  - Role-group permissions seeded via `AttendanceConfig` post_migrate
+
 ### Changed
+- Replaced scaffold `AttendanceRecord` with daily `Attendance` (data migrated in `0002`)
 - Renamed Django project package `payroll_project/` → `config/`
 - Moved documentation from root `docs/` to `backend/docs/`
 - Added `backend/media/` directory and root `LICENSE` (MIT)
@@ -18,14 +26,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - **Client Management module** — `Client` moved to `apps.clients` with full CRUD at `/clients/`
 - Git workflow: `main` / `develop` / `feature/<module-name>`
 
-### Added
-- `apps.clients` — first complete business module (model, views, forms, admin, tests)
-- Django REST Framework dependency (API layer for Phase 2)
-
 ### Planned
 - React frontend (`frontend/`)
 - REST API (`/api/v1/`)
-- Role-based access control
+- Tag `v0.6.0` after merge to main
 
 ---
 

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ holiday.holiday_name }}{% endblock %}
+{% block content %}
+{% include "attendance/_nav.html" %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">{{ holiday.holiday_name }}</h2>
+        <p class="text-muted mb-0">{{ holiday.holiday_date }} · {{ holiday.company.company_name }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'attendance:holiday_edit' holiday.pk %}" class="btn btn-primary">Edit</a>
+        <a href="{% url 'attendance:holiday_list' %}" class="btn btn-outline-secondary">Back</a>
+    </div>
+</div>
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <div class="text-muted small">Type</div>
+        <div class="fw-semibold">{{ holiday.get_holiday_type_display }}</div>
+    </div>
+</div>
+<form method="post" action="{% url 'attendance:holiday_archive' holiday.pk %}" onsubmit="return confirm('Archive this holiday?');">
+    {% csrf_token %}
+    <button class="btn btn-outline-danger" type="submit">Archive</button>
+</form>
+{% endblock %}

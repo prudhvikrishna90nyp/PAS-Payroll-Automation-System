@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ shift.shift_code }}{% endblock %}
+{% block content %}
+{% include "attendance/_nav.html" %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">{{ shift.shift_code }} — {{ shift.shift_name }}</h2>
+        <p class="text-muted mb-0">{{ shift.company.company_name }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'attendance:shift_edit' shift.pk %}" class="btn btn-primary">Edit</a>
+        <a href="{% url 'attendance:shift_list' %}" class="btn btn-outline-secondary">Back</a>
+    </div>
+</div>
+<div class="card shadow-sm mb-3">
+    <div class="card-body row g-3">
+        <div class="col-md-3"><div class="text-muted small">In / Out</div><div>{{ shift.in_time }} — {{ shift.out_time }}</div></div>
+        <div class="col-md-3"><div class="text-muted small">Break / Grace</div><div>{{ shift.break_minutes }} / {{ shift.grace_in_minutes }}-{{ shift.grace_out_minutes }} min</div></div>
+        <div class="col-md-3"><div class="text-muted small">Half / Full day</div><div>{{ shift.half_day_hours }} / {{ shift.full_day_hours }} hrs</div></div>
+        <div class="col-md-3"><div class="text-muted small">Night shift</div><div>{% if shift.is_night_shift %}Yes{% else %}No{% endif %}</div></div>
+    </div>
+</div>
+<form method="post" action="{% url 'attendance:shift_archive' shift.pk %}" onsubmit="return confirm('Archive this shift?');">
+    {% csrf_token %}
+    <button class="btn btn-outline-danger" type="submit">Archive</button>
+</form>
+{% endblock %}
