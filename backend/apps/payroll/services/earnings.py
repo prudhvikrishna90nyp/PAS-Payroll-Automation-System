@@ -29,11 +29,14 @@ def build_earning_rows(lines: list[dict], factor: Decimal) -> list[dict]:
             'component_type': ComponentType.EARNING,
             'amount': amount,
             'include_in_gross': line.get('include_in_gross', True),
+            'pf_applicable': line.get('pf_applicable', False),
+            'esi_applicable': line.get('esi_applicable', False),
             'calculation_detail': {
                 'calculation_type': line.get('calculation_type'),
                 'full_month_amount': str(full_amount),
                 'proration_factor': str(factor),
                 'prorated': True,
+                'pf_applicable': bool(line.get('pf_applicable', False)),
             },
         })
     return rows

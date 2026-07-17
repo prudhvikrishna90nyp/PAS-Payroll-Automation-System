@@ -8,6 +8,7 @@
             <a class="btn btn-sm {% if 'assignment' in request.resolver_match.url_name %}btn-primary{% else %}btn-outline-dark{% endif %}" href="{% url 'payroll:assignment_list' %}">Assignments</a>
             <a class="btn btn-sm {% if 'payslip' in request.resolver_match.url_name %}btn-primary{% else %}btn-outline-dark{% endif %}" href="{% url 'payroll:payslip_list' %}">Payslips</a>
             <a class="btn btn-sm {% if 'report' in request.resolver_match.url_name %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{% url 'payroll:report_index' %}">Reports</a>
+            <a class="btn btn-sm btn-outline-secondary" href="{% url 'compliance:hub' %}">EPF Compliance</a>
         </div>
     </div>
 </div>

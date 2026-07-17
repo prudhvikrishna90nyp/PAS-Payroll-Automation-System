@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}EPF Compliance{% endblock %}
+{% block page_heading %}EPF Compliance{% endblock %}
+{% block page_subtitle %}PF registers and EPFO ECR export for calculated payroll runs{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm mb-3">
+    <div class="card-body py-3">
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-sm btn-primary" href="{% url 'compliance:hub' %}">PF Hub</a>
+            <a class="btn btn-sm btn-outline-dark" href="{% url 'payroll:run_list' %}">Payroll Runs</a>
+            <a class="btn btn-sm btn-outline-secondary" href="{% url 'payroll:report_index' %}">Payroll Reports</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/admin/compliance/pfruleset/">PF Rule Sets (Admin)</a>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header"><strong>Calculated / approved runs</strong></div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Company</th>
+                    <th>Period</th>
+                    <th>Run #</th>
+                    <th>Status</th>
+                    <th>PF Rule</th>
+                    <th>Exports</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                <tr>
+                    <td>{{ run.company.company_name }}</td>
+                    <td>{{ run.period.month|stringformat:"02d" }}/{{ run.period.year }}</td>
+                    <td><a href="{% url 'payroll:run_detail' run.pk %}">#{{ run.run_number }}</a></td>
+                    <td>{{ run.get_status_display }}</td>
+                    <td>{{ run.pf_rule_set.code|default:"—" }}</td>
+                    <td class="small">
+                        <a href="{% url 'compliance:pf_report_export' run.pk 'pf_register' %}">PF Register</a>
+                        · <a href="{% url 'compliance:pf_report_export' run.pk 'ee_contribution' %}">EE</a>
+                        · <a href="{% url 'compliance:pf_report_export' run.pk 'er_contribution' %}">ER</a>
+                        · <a href="{% url 'compliance:pf_report_export' run.pk 'monthly_summary' %}">Summary</a>
+                        · <a href="{% url 'compliance:pf_report_export' run.pk 'missing_uan' %}">Missing UAN</a>
+                        · <a href="{% url 'compliance:pf_report_export' run.pk 'higher_pension' %}">Higher Pension</a>
+                        · <a href="{% url 'compliance:ecr_export' run.pk %}?format=txt">ECR txt</a>
+                        · <a href="{% url 'compliance:ecr_export' run.pk %}?format=xlsx">ECR xlsx</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-muted">No calculated payroll runs available yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="alert alert-light border mt-3 small">
+    <strong>ECR columns:</strong> UAN, Member Name, Gross Wages, EPF Wages, EPS Wages, EDLI Wages,
+    EE Share, EPS Contribution, ER EPF Difference, NCP Days, Refund of Advances.
+    Text export is tab-separated (EPFO-style). Use <code>?validate=0</code> to skip UAN checks.
+</div>
+{% endblock %}

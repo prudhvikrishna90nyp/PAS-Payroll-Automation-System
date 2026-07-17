@@ -14,6 +14,7 @@ from openpyxl import load_workbook
 from apps.clients.models import Client
 from apps.company.models import Branch, Company, Department
 from apps.employee.models import Employee
+from apps.compliance.services.pf_rules import seed_default_pf_rule_set
 
 from .models import (
     CalculationType,
@@ -145,6 +146,7 @@ class PayrollTestMixin:
             basic_salary=Decimal('20000.00'),
             auto_generate_code=False,
         )
+        seed_default_pf_rule_set()
 
 
 class FormulaEngineTests(TestCase):
@@ -712,7 +714,13 @@ class PayrollCalculationEngineTests(PayrollTestMixin, TestCase):
         self.assertIn('BASIC', codes)
         self.assertIn('STAT_PF', codes)
         pf = PayrollResultComponent.objects.get(result=result, component_code='STAT_PF')
-        self.assertEqual(pf.amount, Decimal('0.00'))
+        # BASIC 20000 capped at 15000 × 12% = 1800 (Sprint 9.1 EPF)
+        self.assertEqual(pf.amount, Decimal('1800.00'))
+        self.assertEqual(result.total_deductions, Decimal('1800.00'))
+        self.assertEqual(self.run.pf_rule_set_id is not None, True)
+        self.assertTrue(hasattr(result, 'pf_result'))
+        self.assertEqual(result.pf_result.employee_pf, Decimal('1800.00'))
+        self.assertEqual(result.pf_result.eps, Decimal('1249.50'))  # 15000 * 8.33%
 
     def test_mid_month_joining_proration(self):
         self.employee.date_of_joining = date(2026, 7, 16)
