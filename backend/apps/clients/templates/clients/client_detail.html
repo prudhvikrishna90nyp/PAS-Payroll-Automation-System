@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ client.client_name }}
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>{{ client.client_name }}</h2>
+
+        <p class="text-muted mb-0">
+            {{ client.client_code }}
+            {% if client.trade_name %}
+                · {{ client.trade_name }}
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a
+            href="{% url 'clients:client_list' %}"
+            class="btn btn-outline-secondary"
+        >
+            Back to Clients
+        </a>
+
+        <a
+            href="{% url 'clients:client_edit' client.pk %}"
+            class="btn btn-primary"
+        >
+            Edit
+        </a>
+
+        {% if client.is_active %}
+            <form
+                method="post"
+                action="{% url 'clients:client_archive' client.pk %}"
+                class="d-inline"
+                onsubmit="return confirm('Archive this client?');"
+            >
+                {% csrf_token %}
+
+                <button
+                    type="submit"
+                    class="btn btn-outline-danger"
+                >
+                    Archive
+                </button>
+            </form>
+        {% else %}
+            <form
+                method="post"
+                action="{% url 'clients:client_restore' client.pk %}"
+                class="d-inline"
+            >
+                {% csrf_token %}
+
+                <button
+                    type="submit"
+                    class="btn btn-outline-success"
+                >
+                    Restore
+                </button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        Client Information
+    </div>
+
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="text-muted small">Client Code</div>
+                <div class="fw-semibold">{{ client.client_code }}</div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="text-muted small">Client Name</div>
+                <div class="fw-semibold">{{ client.client_name }}</div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="text-muted small">Trade Name</div>
+                <div>{{ client.trade_name|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="text-muted small">Contact Person</div>
+                <div>{{ client.contact_person|default:"-" }}</div>
+            </div>
+
+            <div class="col-12">
+                <div class="text-muted small">Status</div>
+                <div>
+                    {% if client.is_active %}
+                        <span class="badge text-bg-success">Active</span>
+                    {% else %}
+                        <span class="badge text-bg-secondary">Archived</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        Contact and Registration
+    </div>
+
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="text-muted small">Mobile</div>
+                <div>{{ client.mobile }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">Alternate Mobile</div>
+                <div>{{ client.alternate_mobile|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">Email</div>
+                <div>{{ client.email|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="text-muted small">PAN</div>
+                <div>{{ client.pan|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="text-muted small">GSTIN</div>
+                <div>{{ client.gstin|default:"-" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        Address
+    </div>
+
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-12">
+                <div class="text-muted small">Address Line 1</div>
+                <div>{{ client.address_line_1 }}</div>
+            </div>
+
+            <div class="col-12">
+                <div class="text-muted small">Address Line 2</div>
+                <div>{{ client.address_line_2|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="text-muted small">City</div>
+                <div>{{ client.city }}</div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="text-muted small">District</div>
+                <div>{{ client.district|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="text-muted small">State</div>
+                <div>{{ client.state }}</div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="text-muted small">PIN Code</div>
+                <div>{{ client.pincode }}</div>
+            </div>
+
+            {% if client.notes %}
+            <div class="col-12">
+                <div class="text-muted small">Notes</div>
+                <div>{{ client.notes|linebreaksbr }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Companies</span>
+        <a
+            href="{% url 'company:company_list' %}?client={{ client.pk }}"
+            class="btn btn-sm btn-outline-primary"
+        >
+            View All
+        </a>
+    </div>
+
+    <div class="card-body">
+        {% with companies=client.companies.all %}
+            {% if companies %}
+                <ul class="list-group list-group-flush">
+                    {% for company in companies|slice:":5" %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <a href="{% url 'company:company_detail' company.pk %}">
+                                {{ company.company_name }}
+                            </a>
+                            {% if company.is_active %}
+                                <span class="badge text-bg-success">Active</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary">Archived</span>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted mb-2">No companies are linked to this client yet.</p>
+            {% endif %}
+        {% endwith %}
+
+        <a
+            href="{% url 'company:company_add' %}?client={{ client.pk }}"
+            class="btn btn-sm btn-primary mt-3"
+        >
+            Add Company
+        </a>
+    </div>
+</div>
+
+{% if client.created_at or client.updated_at %}
+<div class="card shadow-sm">
+    <div class="card-header">
+        Audit Information
+    </div>
+
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="text-muted small">Created</div>
+                <div>{{ client.created_at|date:"d M Y, H:i" }}</div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="text-muted small">Updated</div>
+                <div>{{ client.updated_at|date:"d M Y, H:i" }}</div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="text-muted small">Created By</div>
+                <div>{{ client.created_by|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="text-muted small">Updated By</div>
+                <div>{{ client.updated_by|default:"-" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

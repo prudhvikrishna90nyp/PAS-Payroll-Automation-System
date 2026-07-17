@@ -1,153 +1,129 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse_lazy
+from django.views import View
 from django.views.decorators.http import require_POST
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-from .forms import BranchForm, ClientForm, CompanyForm
-from .models import Branch, Client, Company
+from apps.clients.models import Client
+from apps.common.utils import paginate, status_filter
 
-PAGE_SIZE = 10
-
-
-def _paginate(request, queryset):
-    paginator = Paginator(queryset, PAGE_SIZE)
-    return paginator.get_page(request.GET.get('page'))
+from .forms import BranchForm, CompanyForm
+from .models import Branch, Company
 
 
-def _status_filter(queryset, request):
-    status = request.GET.get('status')
-    if status == 'active':
-        return queryset.filter(is_active=True)
-    if status == 'inactive':
-        return queryset.filter(is_active=False)
-    return queryset
+class CompanyListView(LoginRequiredMixin, ListView):
+    model = Company
+    template_name = 'company/company_list.html'
+    context_object_name = 'companies'
+    paginate_by = 10
+
+    def get_queryset(self):
+        queryset = Company.objects.select_related('client')
+
+        search_query = self.request.GET.get('q', '').strip()
+        status = self.request.GET.get('status', '').strip()
+        client_id = self.request.GET.get('client', '').strip()
+
+        if search_query:
+            queryset = queryset.filter(
+                Q(company_name__icontains=search_query)
+                | Q(trade_name__icontains=search_query)
+                | Q(pan__icontains=search_query)
+                | Q(gstin__icontains=search_query)
+                | Q(tan__icontains=search_query)
+                | Q(client__client_name__icontains=search_query)
+            )
+
+        if client_id:
+            queryset = queryset.filter(client_id=client_id)
+
+        if status == 'active':
+            queryset = queryset.filter(is_active=True)
+        elif status == 'inactive':
+            queryset = queryset.filter(is_active=False)
+
+        return queryset.order_by('company_name')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_query'] = self.request.GET.get('q', '')
+        context['status_filter'] = self.request.GET.get('status', '')
+        context['client_filter'] = self.request.GET.get('client', '')
+        context['clients'] = Client.objects.filter(is_active=True).order_by('client_name')
+        return context
 
 
-@login_required
-def client_list(request):
-    queryset = Client.objects.all()
-    q = request.GET.get('q', '').strip()
-    if q:
-        queryset = queryset.filter(
-            Q(name__icontains=q)
-            | Q(code__icontains=q)
-            | Q(contact_person__icontains=q)
-            | Q(email__icontains=q)
-        )
-    queryset = _status_filter(queryset, request)
-    page_obj = _paginate(request, queryset)
-    params = request.GET.copy()
-    params.pop('page', None)
-    return render(request, 'company/client_list.html', {
-        'page_obj': page_obj,
-        'q': q,
-        'status': request.GET.get('status', ''),
-        'filter_query': params.urlencode(),
-    })
+class CompanyDetailView(LoginRequiredMixin, DetailView):
+    model = Company
+    template_name = 'company/company_detail.html'
+    context_object_name = 'company'
+
+    def get_queryset(self):
+        return Company.objects.select_related('client', 'created_by', 'updated_by')
 
 
-@login_required
-def client_create(request):
-    form = ClientForm(request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        form.save()
-        messages.success(request, 'Client created successfully.')
-        return redirect('client_list')
-    return render(request, 'company/client_form.html', {
-        'form': form,
-        'title': 'Add Client',
-    })
+class CompanyCreateView(LoginRequiredMixin, CreateView):
+    model = Company
+    form_class = CompanyForm
+    template_name = 'company/company_form.html'
+    success_url = reverse_lazy('company:company_list')
+
+    def get_initial(self):
+        initial = super().get_initial()
+        client_id = self.request.GET.get('client')
+        if client_id:
+            initial['client'] = client_id
+        return initial
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, 'Company created successfully.')
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, 'Please correct the errors shown below.')
+        return super().form_invalid(form)
 
 
-@login_required
-def client_update(request, pk):
-    client = get_object_or_404(Client, pk=pk)
-    form = ClientForm(request.POST or None, instance=client)
-    if request.method == 'POST' and form.is_valid():
-        form.save()
-        messages.success(request, 'Client updated successfully.')
-        return redirect('client_list')
-    return render(request, 'company/client_form.html', {
-        'form': form,
-        'title': 'Edit Client',
-        'object': client,
-    })
+class CompanyUpdateView(LoginRequiredMixin, UpdateView):
+    model = Company
+    form_class = CompanyForm
+    template_name = 'company/company_form.html'
+    success_url = reverse_lazy('company:company_list')
+
+    def form_valid(self, form):
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, 'Company updated successfully.')
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, 'Please correct the errors shown below.')
+        return super().form_invalid(form)
 
 
-@login_required
-@require_POST
-def client_delete(request, pk):
-    client = get_object_or_404(Client, pk=pk)
-    client.soft_delete()
-    messages.success(request, f'Client "{client.name}" deleted.')
-    return redirect('client_list')
+class CompanyArchiveView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        company = get_object_or_404(Company, pk=pk)
+        company.is_active = False
+        company.updated_by = request.user
+        company.save(update_fields=['is_active', 'updated_by', 'updated_at'])
+        messages.success(request, f'{company.company_name} was archived.')
+        return redirect('company:company_list')
 
 
-@login_required
-def company_list(request):
-    queryset = Company.objects.select_related('client')
-    q = request.GET.get('q', '').strip()
-    client_id = request.GET.get('client')
-    if q:
-        queryset = queryset.filter(
-            Q(company_name__icontains=q)
-            | Q(trade_name__icontains=q)
-            | Q(pan__icontains=q)
-            | Q(gstin__icontains=q)
-        )
-    if client_id:
-        queryset = queryset.filter(client_id=client_id)
-    queryset = _status_filter(queryset, request)
-    page_obj = _paginate(request, queryset)
-    params = request.GET.copy()
-    params.pop('page', None)
-    return render(request, 'company/company_list.html', {
-        'page_obj': page_obj,
-        'q': q,
-        'status': request.GET.get('status', ''),
-        'client_id': client_id or '',
-        'clients': Client.objects.filter(is_active=True),
-        'filter_query': params.urlencode(),
-    })
-
-
-@login_required
-def company_create(request):
-    form = CompanyForm(request.POST or None, request.FILES or None)
-    if request.method == 'POST' and form.is_valid():
-        form.save()
-        messages.success(request, 'Company created successfully.')
-        return redirect('company_list')
-    return render(request, 'company/company_form.html', {
-        'form': form,
-        'title': 'Add Company',
-    })
-
-
-@login_required
-def company_update(request, pk):
-    company = get_object_or_404(Company, pk=pk)
-    form = CompanyForm(request.POST or None, request.FILES or None, instance=company)
-    if request.method == 'POST' and form.is_valid():
-        form.save()
-        messages.success(request, 'Company updated successfully.')
-        return redirect('company_list')
-    return render(request, 'company/company_form.html', {
-        'form': form,
-        'title': 'Edit Company',
-        'object': company,
-    })
-
-
-@login_required
-@require_POST
-def company_delete(request, pk):
-    company = get_object_or_404(Company, pk=pk)
-    company.soft_delete()
-    messages.success(request, f'Company "{company.company_name}" deleted.')
-    return redirect('company_list')
+class CompanyRestoreView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        company = get_object_or_404(Company, pk=pk)
+        company.is_active = True
+        company.updated_by = request.user
+        company.save(update_fields=['is_active', 'updated_by', 'updated_at'])
+        messages.success(request, f'{company.company_name} was restored.')
+        return redirect('company:company_list')
 
 
 @login_required
@@ -166,8 +142,8 @@ def branch_list(request):
         queryset = queryset.filter(company_id=company_id)
     if client_id:
         queryset = queryset.filter(company__client_id=client_id)
-    queryset = _status_filter(queryset, request)
-    page_obj = _paginate(request, queryset)
+    queryset = status_filter(queryset, request)
+    page_obj = paginate(request, queryset)
     params = request.GET.copy()
     params.pop('page', None)
     return render(request, 'company/branch_list.html', {

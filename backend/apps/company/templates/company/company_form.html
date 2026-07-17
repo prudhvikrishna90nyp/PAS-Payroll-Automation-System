@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if object %}
+Edit Company
+{% else %}
+Add Company
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>
+            {% if object %}
+                Edit Company
+            {% else %}
+                Add Company
+            {% endif %}
+        </h2>
+
+        <p class="text-muted mb-0">
+            Enter company registration, statutory and contact details.
+        </p>
+    </div>
+
+    <a href="{% url 'company:company_list' %}" class="btn btn-outline-secondary">
+        Back to Companies
+    </a>
+</div>
+
+<form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {{ form.non_field_errors }}
+        </div>
+    {% endif %}
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            Company Information
+        </div>
+
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Client</label>
+                    {{ form.client }}
+                    {% for error in form.client.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Company Name</label>
+                    {{ form.company_name }}
+                    {% for error in form.company_name.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Trade Name</label>
+                    {{ form.trade_name }}
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Logo</label>
+                    {{ form.logo }}
+                    {% if object and object.logo %}
+                        <div class="mt-2">
+                            <img src="{{ object.logo.url }}" alt="Company logo" class="rounded" height="48">
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            Statutory Registration
+        </div>
+
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">PAN</label>
+                    {{ form.pan }}
+                    {% for error in form.pan.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">GSTIN</label>
+                    {{ form.gstin }}
+                    {% for error in form.gstin.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">TAN</label>
+                    {{ form.tan }}
+                    {% for error in form.tan.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">EPF Code</label>
+                    {{ form.epf_code }}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">ESI Code</label>
+                    {{ form.esi_code }}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Professional Tax Registration</label>
+                    {{ form.professional_tax_registration }}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Labour Licence</label>
+                    {{ form.labour_licence }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            Address and Contact
+        </div>
+
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label">Address</label>
+                    {{ form.address }}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">State</label>
+                    {{ form.state }}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">District</label>
+                    {{ form.district }}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">PIN Code</label>
+                    {{ form.pin_code }}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Contact Person</label>
+                    {{ form.contact_person }}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Phone</label>
+                    {{ form.phone }}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Email</label>
+                    {{ form.email }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            Banking
+        </div>
+
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label">Bank Details</label>
+                    {{ form.bank_details }}
+                </div>
+
+                <div class="col-12">
+                    <div class="form-check">
+                        {{ form.is_active }}
+                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                            Active company
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+        <a href="{% url 'company:company_list' %}" class="btn btn-outline-secondary">
+            Cancel
+        </a>
+
+        <button type="submit" class="btn btn-primary">
+            Save Company
+        </button>
+    </div>
+</form>
+
+{% endblock %}

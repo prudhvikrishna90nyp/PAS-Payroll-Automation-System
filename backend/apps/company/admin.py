@@ -1,13 +1,6 @@
 from django.contrib import admin
 
-from .models import Branch, Client, Company
-
-
-@admin.register(Client)
-class ClientAdmin(admin.ModelAdmin):
-    list_display = ('name', 'code', 'contact_person', 'phone', 'is_active', 'is_deleted')
-    list_filter = ('is_active', 'is_deleted')
-    search_fields = ('name', 'code', 'email')
+from .models import Branch, Company
 
 
 @admin.register(Company)
@@ -34,7 +27,18 @@ class CompanyAdmin(admin.ModelAdmin):
         ('Banking', {
             'fields': ('bank_details',),
         }),
+        ('Audit', {
+            'fields': ('created_by', 'updated_by'),
+            'classes': ('collapse',),
+        }),
     )
+    readonly_fields = ('created_by', 'updated_by')
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+        obj.updated_by = request.user
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Branch)

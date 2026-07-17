@@ -1,24 +1,9 @@
+from django.conf import settings
 from django.db import models
+from django.urls import reverse
 
-from .managers import SoftDeleteModel
-
-
-class Client(SoftDeleteModel):
-    name = models.CharField(max_length=200)
-    code = models.CharField(max_length=20, unique=True)
-    contact_person = models.CharField(max_length=100, blank=True)
-    phone = models.CharField(max_length=20, blank=True)
-    email = models.EmailField(blank=True)
-    address = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ['name']
-
-    def __str__(self):
-        return self.name
+from apps.clients.models import Client
+from apps.common.mixins import SoftDeleteModel
 
 
 class Company(SoftDeleteModel):
@@ -53,17 +38,52 @@ class Company(SoftDeleteModel):
         blank=True,
         help_text='Bank name, account number, IFSC, branch, etc.',
     )
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='company_company_created_records',
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='company_company_updated_records',
+        null=True,
+        blank=True,
+        editable=False,
+    )
 
     class Meta:
         verbose_name = 'Company'
         verbose_name_plural = 'Companies'
         ordering = ['company_name']
+        indexes = [
+            models.Index(fields=['company_name'], name='company_name_idx'),
+            models.Index(fields=['pan'], name='company_pan_idx'),
+            models.Index(fields=['gstin'], name='company_gstin_idx'),
+        ]
 
     def __str__(self):
         return self.company_name
+
+    def get_absolute_url(self):
+        return reverse('company:company_detail', kwargs={'pk': self.pk})
+
+    def save(self, *args, **kwargs):
+        self.company_name = self.company_name.strip()
+        if self.trade_name:
+            self.trade_name = self.trade_name.strip()
+        if self.pan:
+            self.pan = self.pan.strip().upper()
+        if self.gstin:
+            self.gstin = self.gstin.strip().upper()
+        if self.tan:
+            self.tan = self.tan.strip().upper()
+        if self.email:
+            self.email = self.email.strip().lower()
+        super().save(*args, **kwargs)
 
 
 class Branch(SoftDeleteModel):
@@ -82,9 +102,6 @@ class Branch(SoftDeleteModel):
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
     is_head_office = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = 'Branches'

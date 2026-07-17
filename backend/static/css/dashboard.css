@@ -33,15 +33,20 @@ body {
     flex-shrink: 0;
 }
 
-.sidebar-nav .nav-link {
+.sidebar-nav .nav-link,
+.sidebar-nav .list-group-item {
     color: #cbd5e1;
     border-radius: 8px;
     margin-bottom: 0.25rem;
     padding: 0.65rem 0.9rem;
+    background: transparent;
+    border: none;
 }
 
 .sidebar-nav .nav-link:hover,
-.sidebar-nav .nav-link.active {
+.sidebar-nav .nav-link.active,
+.sidebar-nav .list-group-item:hover,
+.sidebar-nav .list-group-item.active {
     background: rgba(37, 99, 235, 0.2);
     color: #fff;
 }

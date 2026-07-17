@@ -1,24 +1,9 @@
 from django import forms
 
-from .models import Branch, Client, Company
-from .validators import validate_gstin, validate_pan
+from apps.clients.models import Client
+from apps.common.validators import validate_gstin, validate_pan, validate_tan
 
-
-class ClientForm(forms.ModelForm):
-    class Meta:
-        model = Client
-        fields = [
-            'name', 'code', 'contact_person', 'phone', 'email', 'address', 'is_active',
-        ]
-        widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'code': forms.TextInput(attrs={'class': 'form-control'}),
-            'contact_person': forms.TextInput(attrs={'class': 'form-control'}),
-            'phone': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
-            'address': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        }
+from .models import Branch, Company
 
 
 class CompanyForm(forms.ModelForm):
@@ -37,7 +22,7 @@ class CompanyForm(forms.ModelForm):
             'logo': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'pan': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ABCDE1234F'}),
             'gstin': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '15-character GSTIN'}),
-            'tan': forms.TextInput(attrs={'class': 'form-control'}),
+            'tan': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ABCD12345E'}),
             'epf_code': forms.TextInput(attrs={'class': 'form-control'}),
             'esi_code': forms.TextInput(attrs={'class': 'form-control'}),
             'professional_tax_registration': forms.TextInput(attrs={'class': 'form-control'}),
@@ -53,6 +38,10 @@ class CompanyForm(forms.ModelForm):
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['client'].queryset = Client.objects.filter(is_active=True).order_by('client_name')
+
     def clean_pan(self):
         pan = self.cleaned_data.get('pan', '')
         if pan:
@@ -66,6 +55,13 @@ class CompanyForm(forms.ModelForm):
             validate_gstin(gstin)
             return gstin.strip().upper()
         return gstin
+
+    def clean_tan(self):
+        tan = self.cleaned_data.get('tan', '')
+        if tan:
+            validate_tan(tan)
+            return tan.strip().upper()
+        return tan
 
 
 class BranchForm(forms.ModelForm):

@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if object %}
+Edit Client
+{% else %}
+Add Client
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>
+            {% if object %}
+                Edit Client
+            {% else %}
+                Add Client
+            {% endif %}
+        </h2>
+
+        <p class="text-muted mb-0">
+            Enter the client registration and contact details.
+        </p>
+    </div>
+
+    <a
+        href="{% url 'clients:client_list' %}"
+        class="btn btn-outline-secondary"
+    >
+        Back to Clients
+    </a>
+</div>
+
+<form method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {{ form.non_field_errors }}
+        </div>
+    {% endif %}
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            Client Information
+        </div>
+
+        <div class="card-body">
+            <div class="row g-3">
+
+                <div class="col-md-4">
+                    <label class="form-label">
+                        Client Code
+                    </label>
+
+                    {{ form.client_code }}
+
+                    {% for error in form.client_code.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-8">
+                    <label class="form-label">
+                        Client Name
+                    </label>
+
+                    {{ form.client_name }}
+
+                    {% for error in form.client_name.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">
+                        Trade Name
+                    </label>
+
+                    {{ form.trade_name }}
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">
+                        Contact Person
+                    </label>
+
+                    {{ form.contact_person }}
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            Contact and Registration
+        </div>
+
+        <div class="card-body">
+            <div class="row g-3">
+
+                <div class="col-md-4">
+                    <label class="form-label">
+                        Mobile
+                    </label>
+
+                    {{ form.mobile }}
+
+                    {% for error in form.mobile.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">
+                        Alternate Mobile
+                    </label>
+
+                    {{ form.alternate_mobile }}
+
+                    {% for error in form.alternate_mobile.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">
+                        Email
+                    </label>
+
+                    {{ form.email }}
+
+                    {% for error in form.email.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">
+                        PAN
+                    </label>
+
+                    {{ form.pan }}
+
+                    {% for error in form.pan.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">
+                        GSTIN
+                    </label>
+
+                    {{ form.gstin }}
+
+                    {% for error in form.gstin.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            Address
+        </div>
+
+        <div class="card-body">
+            <div class="row g-3">
+
+                <div class="col-12">
+                    <label class="form-label">
+                        Address Line 1
+                    </label>
+
+                    {{ form.address_line_1 }}
+
+                    {% for error in form.address_line_1.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label">
+                        Address Line 2
+                    </label>
+
+                    {{ form.address_line_2 }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">
+                        City
+                    </label>
+
+                    {{ form.city }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">
+                        District
+                    </label>
+
+                    {{ form.district }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">
+                        State
+                    </label>
+
+                    {{ form.state }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">
+                        PIN Code
+                    </label>
+
+                    {{ form.pincode }}
+
+                    {% for error in form.pincode.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label">
+                        Notes
+                    </label>
+
+                    {{ form.notes }}
+                </div>
+
+                <div class="col-12">
+                    <div class="form-check">
+                        {{ form.is_active }}
+
+                        <label
+                            class="form-check-label"
+                            for="{{ form.is_active.id_for_label }}"
+                        >
+                            Active client
+                        </label>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+        <a
+            href="{% url 'clients:client_list' %}"
+            class="btn btn-outline-secondary"
+        >
+            Cancel
+        </a>
+
+        <button
+            type="submit"
+            class="btn btn-primary"
+        >
+            Save Client
+        </button>
+    </div>
+</form>
+
+{% endblock %}

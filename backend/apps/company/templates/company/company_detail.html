@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ company.company_name }}
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex align-items-center gap-3">
+        {% if company.logo %}
+            <img
+                src="{{ company.logo.url }}"
+                alt="{{ company.company_name }} logo"
+                class="rounded"
+                width="64"
+                height="64"
+                style="object-fit: cover;"
+            >
+        {% endif %}
+
+        <div>
+            <h2 class="mb-0">{{ company.company_name }}</h2>
+            <p class="text-muted mb-0">
+                <a href="{% url 'clients:client_detail' company.client.pk %}">
+                    {{ company.client.client_name }}
+                </a>
+                {% if company.trade_name %}
+                    · {{ company.trade_name }}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a href="{% url 'company:company_list' %}?client={{ company.client.pk }}" class="btn btn-outline-secondary">
+            Back to Companies
+        </a>
+
+        <a href="{% url 'company:company_edit' company.pk %}" class="btn btn-primary">
+            Edit
+        </a>
+
+        {% if company.is_active %}
+            <form
+                method="post"
+                action="{% url 'company:company_archive' company.pk %}"
+                class="d-inline"
+                onsubmit="return confirm('Archive this company?');"
+            >
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger">
+                    Archive
+                </button>
+            </form>
+        {% else %}
+            <form
+                method="post"
+                action="{% url 'company:company_restore' company.pk %}"
+                class="d-inline"
+            >
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-success">
+                    Restore
+                </button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        Company Information
+    </div>
+
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="text-muted small">Company Name</div>
+                <div class="fw-semibold">{{ company.company_name }}</div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="text-muted small">Client</div>
+                <div>
+                    <a href="{% url 'clients:client_detail' company.client.pk %}">
+                        {{ company.client.client_name }}
+                    </a>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="text-muted small">Trade Name</div>
+                <div>{{ company.trade_name|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="text-muted small">Status</div>
+                <div>
+                    {% if company.is_active %}
+                        <span class="badge text-bg-success">Active</span>
+                    {% else %}
+                        <span class="badge text-bg-secondary">Archived</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        Statutory Registration
+    </div>
+
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="text-muted small">PAN</div>
+                <div>{{ company.pan|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">GSTIN</div>
+                <div>{{ company.gstin|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">TAN</div>
+                <div>{{ company.tan|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">EPF Code</div>
+                <div>{{ company.epf_code|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">ESI Code</div>
+                <div>{{ company.esi_code|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">Professional Tax Registration</div>
+                <div>{{ company.professional_tax_registration|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">Labour Licence</div>
+                <div>{{ company.labour_licence|default:"-" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        Address and Contact
+    </div>
+
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-12">
+                <div class="text-muted small">Address</div>
+                <div>{{ company.address|default:"-"|linebreaksbr }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">State</div>
+                <div>{{ company.state|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">District</div>
+                <div>{{ company.district|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">PIN Code</div>
+                <div>{{ company.pin_code|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">Contact Person</div>
+                <div>{{ company.contact_person|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">Phone</div>
+                <div>{{ company.phone|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">Email</div>
+                <div>{{ company.email|default:"-" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if company.bank_details %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        Banking
+    </div>
+
+    <div class="card-body">
+        {{ company.bank_details|linebreaksbr }}
+    </div>
+</div>
+{% endif %}
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        Audit Information
+    </div>
+
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="text-muted small">Created</div>
+                <div>{{ company.created_at|date:"d M Y, H:i" }}</div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="text-muted small">Updated</div>
+                <div>{{ company.updated_at|date:"d M Y, H:i" }}</div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="text-muted small">Created By</div>
+                <div>{{ company.created_by|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="text-muted small">Updated By</div>
+                <div>{{ company.updated_by|default:"-" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
