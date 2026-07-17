@@ -14,6 +14,9 @@ def snapshot_employee_result(run, calc_result):
     Replaces any existing result row for the same run/employee.
     """
     from apps.payroll.models import PayrollResult, PayrollResultComponent
+    from apps.payroll.services.locking import assert_run_unlocked_for_mutation
+
+    assert_run_unlocked_for_mutation(run)
 
     employee = calc_result.employee
     PayrollResult.objects.filter(run=run, employee=employee).delete()
@@ -54,6 +57,8 @@ def snapshot_employee_result(run, calc_result):
 def clear_run_results(run) -> int:
     """Delete all results (and cascaded components) for a run. Returns count."""
     from apps.payroll.models import PayrollResult
+    from apps.payroll.services.locking import assert_run_unlocked_for_mutation
 
+    assert_run_unlocked_for_mutation(run)
     deleted, _ = PayrollResult.objects.filter(run=run).delete()
     return deleted

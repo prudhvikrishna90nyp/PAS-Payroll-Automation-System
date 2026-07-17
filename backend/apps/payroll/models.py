@@ -594,6 +594,11 @@ class PayrollRun(models.Model):
                 name='uniq_payroll_run_period_number',
             ),
         ]
+        permissions = [
+            ('review_payrollrun', 'Can review payroll run'),
+            ('approve_payrollrun', 'Can approve payroll run'),
+            ('lock_payrollrun', 'Can lock payroll run'),
+        ]
 
     def __str__(self):
         return f'{self.company.company_name} run #{self.run_number} ({self.get_status_display()})'
@@ -627,6 +632,17 @@ class PayrollRun(models.Model):
                 errors['period'] = 'Cannot create a run for a closed payroll period.'
         if errors:
             raise ValidationError(errors)
+
+    def delete(self, *args, **kwargs):
+        if self.pk:
+            locked = (
+                PayrollRun.objects
+                .filter(pk=self.pk, status=PayrollRunStatus.LOCKED)
+                .exists()
+            )
+            if locked:
+                raise ValidationError('Cannot delete a locked payroll run.')
+        return super().delete(*args, **kwargs)
 
 
 class PayrollResult(models.Model):
@@ -711,8 +727,22 @@ class PayrollResult(models.Model):
         return f'{self.employee.employee_code} @ run #{self.run.run_number}'
 
     def clean(self):
-        if self.run_id and self.run.is_locked and self.pk:
-            raise ValidationError('Cannot modify payroll results after the run is locked.')
+        if self.pk and self.run_id:
+            if PayrollRun.objects.filter(pk=self.run_id, status=PayrollRunStatus.LOCKED).exists():
+                raise ValidationError('Cannot modify payroll results after the run is locked.')
+
+    def save(self, *args, **kwargs):
+        if self.pk and self.run_id:
+            if PayrollRun.objects.filter(pk=self.run_id, status=PayrollRunStatus.LOCKED).exists():
+                raise ValidationError('Cannot modify payroll results after the run is locked.')
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.run_id and PayrollRun.objects.filter(
+            pk=self.run_id, status=PayrollRunStatus.LOCKED
+        ).exists():
+            raise ValidationError('Cannot delete payroll results after the run is locked.')
+        return super().delete(*args, **kwargs)
 
 
 class PayrollResultComponent(models.Model):
@@ -740,6 +770,28 @@ class PayrollResultComponent(models.Model):
 
     def __str__(self):
         return f'{self.component_code}: {self.amount}'
+
+    def _run_is_locked(self) -> bool:
+        if not self.result_id:
+            return False
+        return PayrollRun.objects.filter(
+            results__pk=self.result_id,
+            status=PayrollRunStatus.LOCKED,
+        ).exists()
+
+    def save(self, *args, **kwargs):
+        if self.pk and self._run_is_locked():
+            raise ValidationError(
+                'Cannot modify payroll result components after the run is locked.'
+            )
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self._run_is_locked():
+            raise ValidationError(
+                'Cannot delete payroll result components after the run is locked.'
+            )
+        return super().delete(*args, **kwargs)
 
 
 class PayrollAuditLog(models.Model):

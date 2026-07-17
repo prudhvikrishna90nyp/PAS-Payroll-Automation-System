@@ -12,7 +12,7 @@ ROLE_GROUPS = {
         'payslip': ('add', 'change', 'delete', 'view'),
         'payperiod': ('add', 'change', 'delete', 'view'),
         'payrollperiod': ('add', 'change', 'delete', 'view'),
-        'payrollrun': ('add', 'change', 'delete', 'view'),
+        'payrollrun': ('add', 'change', 'delete', 'view', 'review', 'approve', 'lock'),
         'payrollresult': ('add', 'change', 'delete', 'view'),
         'payrollresultcomponent': ('add', 'change', 'delete', 'view'),
         'payrollauditlog': ('view',),
@@ -25,7 +25,7 @@ ROLE_GROUPS = {
         'payslip': ('add', 'change', 'delete', 'view'),
         'payperiod': ('add', 'change', 'delete', 'view'),
         'payrollperiod': ('add', 'change', 'delete', 'view'),
-        'payrollrun': ('add', 'change', 'delete', 'view'),
+        'payrollrun': ('add', 'change', 'delete', 'view', 'review', 'approve', 'lock'),
         'payrollresult': ('view',),
         'payrollresultcomponent': ('view',),
         'payrollauditlog': ('view',),
@@ -38,7 +38,7 @@ ROLE_GROUPS = {
         'payslip': ('view',),
         'payperiod': ('view',),
         'payrollperiod': ('view',),
-        'payrollrun': ('view',),
+        'payrollrun': ('view', 'review'),
         'payrollresult': ('view',),
     },
     'Payroll': {
@@ -49,7 +49,7 @@ ROLE_GROUPS = {
         'payslip': ('add', 'change', 'view'),
         'payperiod': ('add', 'change', 'view'),
         'payrollperiod': ('add', 'change', 'view'),
-        'payrollrun': ('add', 'change', 'view'),
+        'payrollrun': ('add', 'change', 'view', 'review'),
         'payrollresult': ('view',),
         'payrollresultcomponent': ('view',),
         'payrollauditlog': ('view',),
@@ -94,6 +94,9 @@ CHANGE_PERIOD = 'payroll.change_payrollperiod'
 VIEW_RUN = 'payroll.view_payrollrun'
 ADD_RUN = 'payroll.add_payrollrun'
 CHANGE_RUN = 'payroll.change_payrollrun'
+REVIEW_RUN = 'payroll.review_payrollrun'
+APPROVE_RUN = 'payroll.approve_payrollrun'
+LOCK_RUN = 'payroll.lock_payrollrun'
 
 
 def seed_role_groups():

@@ -1,13 +1,31 @@
-"""Payroll run approval workflow (stub — Sprint 8.3)."""
+"""Payroll run review and approval (Sprint 8.3)."""
 
 from __future__ import annotations
 
-
-def submit_for_review(run, user=None):
-    """Draft → Reviewed transition. Planned for Sprint 8.3."""
-    raise NotImplementedError('approval.submit_for_review is planned for Sprint 8.3')
+from apps.payroll.models import PayrollRunStatus
+from apps.payroll.services.workflow import transition_run
 
 
-def approve_run(run, user=None):
-    """Reviewed → Approved transition. Planned for Sprint 8.3."""
-    raise NotImplementedError('approval.approve_run is planned for Sprint 8.3')
+def mark_reviewed(run, user=None, remarks: str = ''):
+    """Calculated → Reviewed."""
+    return transition_run(
+        run,
+        PayrollRunStatus.REVIEWED,
+        user=user,
+        remarks=remarks,
+    )
+
+
+def submit_for_review(run, user=None, remarks: str = ''):
+    """Alias for ``mark_reviewed`` (Calculated → Reviewed)."""
+    return mark_reviewed(run, user=user, remarks=remarks)
+
+
+def approve_run(run, user=None, remarks: str = ''):
+    """Reviewed → Approved."""
+    return transition_run(
+        run,
+        PayrollRunStatus.APPROVED,
+        user=user,
+        remarks=remarks,
+    )

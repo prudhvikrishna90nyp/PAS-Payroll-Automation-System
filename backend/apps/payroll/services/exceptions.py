@@ -1,4 +1,4 @@
-"""Payroll calculation domain exceptions (Sprint 8.2)."""
+"""Payroll calculation and workflow domain exceptions (Sprint 8.2 / 8.3)."""
 
 from __future__ import annotations
 
@@ -38,3 +38,19 @@ class InvalidFormulaError(EmployeeCalculationError):
 class CircularFormulaError(EmployeeCalculationError):
     def __init__(self, message: str, *, employee=None):
         super().__init__(message, employee=employee, code='circular_formula')
+
+
+class PayrollWorkflowError(Exception):
+    """Base error for payroll approval / locking workflow."""
+
+
+class InvalidTransitionError(PayrollWorkflowError):
+    """Raised when a status transition is not allowed (skip / wrong source)."""
+
+
+class RunNotReadyError(PayrollWorkflowError):
+    """Raised when review/approve is blocked by errors or incomplete results."""
+
+
+class LockedRunMutationError(PayrollWorkflowError):
+    """Raised when mutating results/components/run after lock."""

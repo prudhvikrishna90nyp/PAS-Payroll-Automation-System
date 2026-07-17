@@ -37,6 +37,9 @@ urlpatterns = [
     path('runs/add/', views.RunCreateView.as_view(), name='run_add'),
     path('runs/<int:pk>/', views.RunDetailView.as_view(), name='run_detail'),
     path('runs/<int:pk>/calculate/', views.RunCalculateView.as_view(), name='run_calculate'),
+    path('runs/<int:pk>/review/', views.RunReviewView.as_view(), name='run_review'),
+    path('runs/<int:pk>/approve/', views.RunApproveView.as_view(), name='run_approve'),
+    path('runs/<int:pk>/lock/', views.RunLockView.as_view(), name='run_lock'),
 
     # Reports
     path('reports/', views.PayrollReportIndexView.as_view(), name='report_index'),

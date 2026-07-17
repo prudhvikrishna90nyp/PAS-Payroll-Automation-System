@@ -32,6 +32,7 @@ from .models import (
     ComponentType,
     EmployeeSalaryAssignment,
     PayPeriod,
+    PayrollAuditLog,
     PayrollPeriod,
     PayrollPeriodStatus,
     PayrollResult,
@@ -67,8 +68,18 @@ from .permissions import (
 )
 from .reports import REPORT_BUILDERS
 from .services import generate_payslips_for_period
-from .services.exceptions import LockedRunError, PayrollCalculationError, RunNotCalculableError
+from .services.approval import approve_run, mark_reviewed
+from .services.exceptions import (
+    InvalidTransitionError,
+    LockedRunError,
+    PayrollCalculationError,
+    PayrollWorkflowError,
+    RunNotCalculableError,
+    RunNotReadyError,
+)
+from .services.locking import lock_run
 from .services.payroll_engine import calculate_run, close_period, create_run, open_period
+from .services import permissions as workflow_perms
 from .services.salary_calculator import calculate_assignment_components, calculate_structure_components
 from .services.validation import validate_structure
 
@@ -728,11 +739,31 @@ class RunDetailView(PayrollLoginPermissionMixin, PayrollNavMixin, DetailView):
             'net_salary': totals['net_salary'] or Decimal('0.00'),
             'employee_count': results.count(),
         }
-        context['can_calculate'] = self.object.is_calculable and self.request.user.has_perm(
-            CHANGE_RUN
+        user = self.request.user
+        run = self.object
+        context['can_calculate'] = run.is_calculable and user.has_perm(CHANGE_RUN)
+        context['can_review'] = (
+            run.status == PayrollRunStatus.CALCULATED
+            and not run.calculation_errors
+            and workflow_perms.can_review_run(user)
         )
-        context['calculation_errors'] = self.object.calculation_errors or []
+        context['can_approve'] = (
+            run.status == PayrollRunStatus.REVIEWED
+            and not run.calculation_errors
+            and workflow_perms.can_approve_run(user)
+        )
+        context['can_lock'] = (
+            run.status == PayrollRunStatus.APPROVED
+            and workflow_perms.can_lock_run(user)
+        )
+        context['calculation_errors'] = run.calculation_errors or []
         context['PayrollRunStatus'] = PayrollRunStatus
+        context['audit_logs'] = (
+            PayrollAuditLog.objects
+            .filter(run=run)
+            .select_related('user')
+            .order_by('-timestamp')[:50]
+        )
         return context
 
 
@@ -761,6 +792,51 @@ class RunCalculateView(PayrollLoginPermissionMixin, View):
         except Exception as exc:
             messages.error(request, f'Calculation failed: {exc}')
         return redirect('payroll:run_detail', pk=pk)
+
+
+class _RunTransitionView(PayrollLoginPermissionMixin, View):
+    """Shared POST handler for review / approve / lock."""
+
+    permission_required = VIEW_RUN
+    success_message = ''
+
+    def transition(self, run, user, remarks: str):
+        raise NotImplementedError
+
+    def post(self, request, pk):
+        run = get_object_or_404(PayrollRun.objects.select_related('period', 'company'), pk=pk)
+        remarks = (request.POST.get('remarks') or '').strip()
+        try:
+            self.transition(run, request.user, remarks)
+            messages.success(request, self.success_message.format(run=run))
+        except PermissionDenied:
+            raise
+        except (InvalidTransitionError, RunNotReadyError, PayrollWorkflowError) as exc:
+            messages.error(request, str(exc))
+        except Exception as exc:
+            messages.error(request, f'Workflow action failed: {exc}')
+        return redirect('payroll:run_detail', pk=pk)
+
+
+class RunReviewView(_RunTransitionView):
+    success_message = 'Payroll run #{run.run_number} marked as Reviewed.'
+
+    def transition(self, run, user, remarks: str):
+        return mark_reviewed(run, user=user, remarks=remarks)
+
+
+class RunApproveView(_RunTransitionView):
+    success_message = 'Payroll run #{run.run_number} approved.'
+
+    def transition(self, run, user, remarks: str):
+        return approve_run(run, user=user, remarks=remarks)
+
+
+class RunLockView(_RunTransitionView):
+    success_message = 'Payroll run #{run.run_number} locked.'
+
+    def transition(self, run, user, remarks: str):
+        return lock_run(run, user=user, remarks=remarks)
 
 
 class RunCreateView(PayrollLoginPermissionMixin, PayrollNavMixin, CreateView):

@@ -10,32 +10,64 @@
 <div class="card shadow-sm mb-4">
     <div class="card-body row g-3">
         <div class="col-md-3"><strong>Period</strong><br><a href="{% url 'payroll:period_detail' run.period_id %}">{{ run.period.month|stringformat:"02d" }}/{{ run.period.year }}</a></div>
-        <div class="col-md-3"><strong>Status</strong><br>{{ run.get_status_display }}</div>
+        <div class="col-md-3"><strong>Status</strong><br>
+            <span class="badge text-bg-{% if run.status == 'locked' %}secondary{% elif run.status == 'approved' %}success{% elif run.status == 'reviewed' %}info{% elif run.status == 'incomplete' %}warning{% else %}primary{% endif %}">
+                {{ run.get_status_display }}
+            </span>
+        </div>
         <div class="col-md-3"><strong>Created by</strong><br>{{ run.created_by|default:"—" }}</div>
         <div class="col-md-3"><strong>Created</strong><br>{{ run.created_at }}</div>
         {% if run.notes %}
         <div class="col-12"><strong>Notes</strong><br>{{ run.notes }}</div>
         {% endif %}
     </div>
-    <div class="card-footer d-flex gap-2 flex-wrap">
-        {% if can_calculate %}
-        <form method="post" action="{% url 'payroll:run_calculate' run.pk %}">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-primary">
-                {% if run.status == 'draft' %}Calculate{% else %}Recalculate{% endif %}
-            </button>
-        </form>
-        {% elif run.is_locked %}
-        <span class="text-muted align-self-center">Locked — calculation disabled.</span>
-        {% endif %}
-        <a href="{% url 'payroll:run_list' %}" class="btn btn-outline-secondary">Back to runs</a>
+    <div class="card-footer">
+        <div class="d-flex gap-2 flex-wrap align-items-start mb-2">
+            {% if can_calculate %}
+            <form method="post" action="{% url 'payroll:run_calculate' run.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">
+                    {% if run.status == 'draft' %}Calculate{% else %}Recalculate{% endif %}
+                </button>
+            </form>
+            {% elif run.status == 'reviewed' or run.status == 'approved' or run.is_locked %}
+            <span class="text-muted align-self-center">Calculation disabled for {{ run.get_status_display }} runs.</span>
+            {% endif %}
+
+            {% if can_review %}
+            <form method="post" action="{% url 'payroll:run_review' run.pk %}" class="d-flex gap-2 flex-wrap">
+                {% csrf_token %}
+                <input type="text" name="remarks" class="form-control form-control-sm" placeholder="Remarks (optional)" style="max-width: 220px;">
+                <button type="submit" class="btn btn-outline-info">Review</button>
+            </form>
+            {% endif %}
+
+            {% if can_approve %}
+            <form method="post" action="{% url 'payroll:run_approve' run.pk %}" class="d-flex gap-2 flex-wrap">
+                {% csrf_token %}
+                <input type="text" name="remarks" class="form-control form-control-sm" placeholder="Remarks (optional)" style="max-width: 220px;">
+                <button type="submit" class="btn btn-outline-success">Approve</button>
+            </form>
+            {% endif %}
+
+            {% if can_lock %}
+            <form method="post" action="{% url 'payroll:run_lock' run.pk %}" class="d-flex gap-2 flex-wrap">
+                {% csrf_token %}
+                <input type="text" name="remarks" class="form-control form-control-sm" placeholder="Remarks (optional)" style="max-width: 220px;">
+                <button type="submit" class="btn btn-outline-dark">Lock</button>
+            </form>
+            {% endif %}
+
+            <a href="{% url 'payroll:run_list' %}" class="btn btn-outline-secondary">Back to runs</a>
+        </div>
+        <p class="small text-muted mb-0">Lifecycle: Draft → Calculated → Reviewed → Approved → Locked</p>
     </div>
 </div>
 
 {% if calculation_errors %}
 <div class="alert alert-warning">
     <strong>Per-employee calculation errors</strong>
-    <p class="mb-2 small">Failed employees do not receive a zero salary result. Fix the issues and recalculate.</p>
+    <p class="mb-2 small">Failed employees do not receive a zero salary result. Fix the issues and recalculate. Review and approval are blocked until resolved.</p>
     <ul class="mb-0">
         {% for err in calculation_errors %}
         <li><code>{{ err.employee_code }}</code>: {{ err.error }}</li>
@@ -88,4 +120,41 @@
 {% else %}
 <p class="text-muted">No employee results yet. Use Calculate when the run is Draft, Calculated, or Incomplete.</p>
 {% endif %}
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header"><strong>Audit trail</strong></div>
+    {% if audit_logs %}
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Action</th>
+                    <th>User</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in audit_logs %}
+                <tr>
+                    <td>{{ log.timestamp }}</td>
+                    <td><code>{{ log.action }}</code></td>
+                    <td>{{ log.user|default:"—" }}</td>
+                    <td class="small">
+                        {% if log.details.previous_status or log.details.new_status %}
+                        {{ log.details.previous_status|default:"—" }} → {{ log.details.new_status|default:"—" }}
+                        {% if log.details.remarks %}<br>Remarks: {{ log.details.remarks }}{% endif %}
+                        {% else %}
+                        {{ log.details }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card-body text-muted">No audit entries yet.</div>
+    {% endif %}
+</div>
 {% endblock %}

@@ -1,8 +1,10 @@
 from datetime import date, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group, Permission
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.test import TestCase
 from django.urls import reverse
 
@@ -29,14 +31,21 @@ from .models import (
 )
 from .permissions import seed_role_groups
 from .seed import seed_standard_components
+from .services.approval import approve_run, mark_reviewed
 from .services.calculator import calculate_employee, compute_payable_days, compute_proration_factor
-from .services.exceptions import LockedRunError, RunNotCalculableError
+from .services.exceptions import (
+    InvalidTransitionError,
+    LockedRunError,
+    RunNotCalculableError,
+    RunNotReadyError,
+)
 from .services.formula_engine import (
     FormulaError,
     detect_circular_references,
     evaluate_formula,
     extract_references,
 )
+from .services.locking import lock_run, reopen_run
 from .services.payroll_engine import (
     calculate_run,
     close_period,
@@ -893,3 +902,270 @@ class PayrollCalculationEngineTests(PayrollTestMixin, TestCase):
         self.assertEqual(detail.status_code, 200)
         self.assertContains(detail, 'Totals')
         self.assertContains(detail, 'EMP7001')
+
+
+class PayrollApprovalLockingTests(PayrollTestMixin, TestCase):
+    """Sprint 8.3 — review / approve / lock workflow."""
+
+    def setUp(self):
+        super().setUp()
+        seed_role_groups()
+        self.period = create_period(
+            company=self.company,
+            month=8,
+            year=2026,
+            start_date=date(2026, 8, 1),
+            end_date=date(2026, 8, 31),
+            user=self.user,
+        )
+        self.run = create_run(period=self.period, user=self.user)
+        seed_standard_components(self.company)
+        structure = SalaryStructure.objects.create(
+            company=self.company,
+            code='APPR83',
+            name='Approval Structure',
+        )
+        basic = SalaryComponent.objects.get(company=self.company, component_code='BASIC')
+        SalaryStructureLine.objects.create(
+            structure=structure,
+            component=basic,
+            calculation_type=CalculationType.PERCENTAGE,
+            percent=Decimal('100.0000'),
+            display_order=10,
+        )
+        EmployeeSalaryAssignment.objects.create(
+            employee=self.employee,
+            salary_structure=structure,
+            effective_from=date(2026, 1, 1),
+            gross_salary=Decimal('30000.00'),
+            ctc=Decimal('360000.00'),
+            created_by=self.user,
+            updated_by=self.user,
+        )
+        # Grant workflow permissions to primary test user (Admin-equivalent).
+        for codename in ('review_payrollrun', 'approve_payrollrun', 'lock_payrollrun'):
+            self.user.user_permissions.add(_perm(codename))
+        self.hr_user = get_user_model().objects.create_user(
+            username='hrreviewer',
+            password='TestPassword123!',
+        )
+        Group.objects.get(name='HR').user_set.add(self.hr_user)
+        self.hr_user.user_permissions.add(_perm('view_payrollrun'))
+
+        self.viewer = get_user_model().objects.create_user(
+            username='viewer83',
+            password='TestPassword123!',
+        )
+        Group.objects.get(name='Viewer').user_set.add(self.viewer)
+        self.viewer.user_permissions.add(_perm('view_payrollrun'))
+
+        self.superuser = get_user_model().objects.create_superuser(
+            username='super83',
+            email='super83@example.com',
+            password='TestPassword123!',
+        )
+
+    def _calculate(self):
+        calculate_run(self.run, user=self.user)
+        self.run.refresh_from_db()
+        return self.run
+
+    def test_valid_full_sequence(self):
+        self._calculate()
+        self.assertEqual(self.run.status, PayrollRunStatus.CALCULATED)
+
+        mark_reviewed(self.run, user=self.hr_user, remarks='Looks good')
+        self.run.refresh_from_db()
+        self.assertEqual(self.run.status, PayrollRunStatus.REVIEWED)
+
+        approve_run(self.run, user=self.user, remarks='Approved for lock')
+        self.run.refresh_from_db()
+        self.assertEqual(self.run.status, PayrollRunStatus.APPROVED)
+
+        lock_run(self.run, user=self.user, remarks='Final')
+        self.run.refresh_from_db()
+        self.assertEqual(self.run.status, PayrollRunStatus.LOCKED)
+        self.assertTrue(self.run.is_locked)
+
+    def test_invalid_skip_transitions(self):
+        self._calculate()
+        with self.assertRaises(InvalidTransitionError):
+            approve_run(self.run, user=self.user)
+        with self.assertRaises(InvalidTransitionError):
+            lock_run(self.run, user=self.user)
+        # Draft → Reviewed not allowed
+        draft = create_run(period=self.period, user=self.user)
+        with self.assertRaises(InvalidTransitionError):
+            mark_reviewed(draft, user=self.hr_user)
+
+    def test_unauthorized_review_approval_lock(self):
+        self._calculate()
+        with self.assertRaises(PermissionDenied):
+            mark_reviewed(self.run, user=self.viewer)
+        mark_reviewed(self.run, user=self.hr_user)
+        self.run.refresh_from_db()
+        with self.assertRaises(PermissionDenied):
+            approve_run(self.run, user=self.hr_user)
+        with self.assertRaises(PermissionDenied):
+            approve_run(self.run, user=self.viewer)
+        approve_run(self.run, user=self.user)
+        self.run.refresh_from_db()
+        with self.assertRaises(PermissionDenied):
+            lock_run(self.run, user=self.hr_user)
+        with self.assertRaises(PermissionDenied):
+            lock_run(self.run, user=self.viewer)
+
+    def test_approval_blocked_when_errors(self):
+        for assignment in self.employee.salary_assignments.all():
+            assignment.soft_delete()
+        calculate_run(self.run, user=self.user)
+        self.run.refresh_from_db()
+        self.assertEqual(self.run.status, PayrollRunStatus.INCOMPLETE)
+        self.assertTrue(self.run.calculation_errors)
+        with self.assertRaises(InvalidTransitionError):
+            mark_reviewed(self.run, user=self.hr_user)
+
+        # Calculated with injected errors also blocked
+        self.run.status = PayrollRunStatus.CALCULATED
+        self.run.calculation_errors = [{'employee_code': 'X', 'error': 'boom'}]
+        self.run.save(update_fields=['status', 'calculation_errors'])
+        with self.assertRaises(RunNotReadyError):
+            mark_reviewed(self.run, user=self.hr_user)
+
+    def test_locked_recalc_rejected(self):
+        self._calculate()
+        mark_reviewed(self.run, user=self.hr_user)
+        approve_run(self.run, user=self.user)
+        lock_run(self.run, user=self.user)
+        with self.assertRaises(LockedRunError):
+            calculate_run(self.run, user=self.user)
+
+    def test_locked_result_update_rejected(self):
+        self._calculate()
+        mark_reviewed(self.run, user=self.hr_user)
+        approve_run(self.run, user=self.user)
+        lock_run(self.run, user=self.user)
+        result = PayrollResult.objects.get(run=self.run)
+        result.net_salary = Decimal('1.00')
+        with self.assertRaises(ValidationError):
+            result.save()
+        component = result.components.first()
+        component.amount = Decimal('1.00')
+        with self.assertRaises(ValidationError):
+            component.save()
+        with self.assertRaises(ValidationError):
+            result.delete()
+        with self.assertRaises(ValidationError):
+            self.run.delete()
+
+    def test_duplicate_approval_and_lock_rejected(self):
+        self._calculate()
+        mark_reviewed(self.run, user=self.hr_user)
+        approve_run(self.run, user=self.user)
+        with self.assertRaises(InvalidTransitionError):
+            approve_run(self.run, user=self.user)
+        lock_run(self.run, user=self.user)
+        with self.assertRaises(InvalidTransitionError):
+            lock_run(self.run, user=self.user)
+        with self.assertRaises(InvalidTransitionError):
+            mark_reviewed(self.run, user=self.hr_user)
+
+    def test_audit_per_transition(self):
+        self._calculate()
+        mark_reviewed(self.run, user=self.hr_user, remarks='HR ok')
+        approve_run(self.run, user=self.user, remarks='Admin ok')
+        lock_run(self.run, user=self.user, remarks='Lock it')
+
+        review_log = PayrollAuditLog.objects.filter(run=self.run, action='run_review').first()
+        approve_log = PayrollAuditLog.objects.filter(run=self.run, action='run_approve').first()
+        lock_log = PayrollAuditLog.objects.filter(run=self.run, action='run_lock').first()
+        self.assertIsNotNone(review_log)
+        self.assertIsNotNone(approve_log)
+        self.assertIsNotNone(lock_log)
+        self.assertEqual(review_log.details['previous_status'], PayrollRunStatus.CALCULATED)
+        self.assertEqual(review_log.details['new_status'], PayrollRunStatus.REVIEWED)
+        self.assertEqual(review_log.details['remarks'], 'HR ok')
+        self.assertEqual(review_log.user_id, self.hr_user.pk)
+        self.assertEqual(approve_log.details['previous_status'], PayrollRunStatus.REVIEWED)
+        self.assertEqual(lock_log.details['new_status'], PayrollRunStatus.LOCKED)
+
+    def test_transaction_rollback_when_audit_fails(self):
+        self._calculate()
+        with patch(
+            'apps.payroll.services.workflow.write_status_transition_audit',
+            side_effect=RuntimeError('audit down'),
+        ):
+            with self.assertRaises(RuntimeError):
+                mark_reviewed(self.run, user=self.hr_user)
+        self.run.refresh_from_db()
+        self.assertEqual(self.run.status, PayrollRunStatus.CALCULATED)
+        self.assertFalse(
+            PayrollAuditLog.objects.filter(run=self.run, action='run_review').exists()
+        )
+
+    def test_select_for_update_used_on_transition(self):
+        self._calculate()
+        with patch.object(
+            PayrollRun.objects,
+            'select_for_update',
+            wraps=PayrollRun.objects.select_for_update,
+        ) as mocked:
+            mark_reviewed(self.run, user=self.hr_user)
+            mocked.assert_called()
+
+    def test_reopen_superuser_only_with_reason(self):
+        self._calculate()
+        mark_reviewed(self.run, user=self.hr_user)
+        approve_run(self.run, user=self.user)
+        lock_run(self.run, user=self.user)
+        with self.assertRaises(PermissionDenied):
+            reopen_run(self.run, user=self.user, remarks='need fix')
+        with self.assertRaises(InvalidTransitionError):
+            reopen_run(self.run, user=self.superuser, remarks='')
+        reopen_run(self.run, user=self.superuser, remarks='Correct bank file')
+        self.run.refresh_from_db()
+        self.assertEqual(self.run.status, PayrollRunStatus.APPROVED)
+        reopen_log = PayrollAuditLog.objects.filter(run=self.run, action='run_reopen').first()
+        self.assertIsNotNone(reopen_log)
+        self.assertEqual(reopen_log.details['remarks'], 'Correct bank file')
+        self.assertTrue(reopen_log.details.get('reopened_by_superuser'))
+
+    def test_workflow_ui_buttons_and_audit_trail(self):
+        self._calculate()
+        self.client.force_login(self.user)
+        detail = self.client.get(reverse('payroll:run_detail', args=[self.run.pk]))
+        self.assertContains(detail, 'Review')
+        self.assertContains(detail, 'Audit trail')
+
+        review = self.client.post(
+            reverse('payroll:run_review', args=[self.run.pk]),
+            {'remarks': 'UI review'},
+        )
+        self.assertEqual(review.status_code, 302)
+        self.run.refresh_from_db()
+        self.assertEqual(self.run.status, PayrollRunStatus.REVIEWED)
+
+        detail = self.client.get(reverse('payroll:run_detail', args=[self.run.pk]))
+        self.assertContains(detail, 'Approve')
+        self.assertNotContains(detail, '>Recalculate<')
+
+        approve = self.client.post(reverse('payroll:run_approve', args=[self.run.pk]))
+        self.assertEqual(approve.status_code, 302)
+        lock = self.client.post(
+            reverse('payroll:run_lock', args=[self.run.pk]),
+            {'remarks': 'UI lock'},
+        )
+        self.assertEqual(lock.status_code, 302)
+        self.run.refresh_from_db()
+        self.assertEqual(self.run.status, PayrollRunStatus.LOCKED)
+
+        detail = self.client.get(reverse('payroll:run_detail', args=[self.run.pk]))
+        self.assertContains(detail, 'run_review')
+        self.assertContains(detail, 'run_lock')
+        self.assertContains(detail, 'Calculation disabled')
+
+    def test_unauthorized_ui_review_returns_403(self):
+        self._calculate()
+        self.client.force_login(self.viewer)
+        response = self.client.post(reverse('payroll:run_review', args=[self.run.pk]))
+        self.assertEqual(response.status_code, 403)

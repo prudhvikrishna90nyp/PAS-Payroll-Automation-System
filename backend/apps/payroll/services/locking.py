@@ -1,9 +1,11 @@
-"""Payroll run locking / immutability (Sprint 8.3 scaffold; used by 8.2 calc)."""
+"""Payroll run locking / immutability (Sprint 8.3)."""
 
 from __future__ import annotations
 
-from apps.payroll.services.exceptions import LockedRunError, RunNotCalculableError
+from apps.payroll.models import PayrollRunStatus
+from apps.payroll.services.exceptions import LockedRunError, LockedRunMutationError, RunNotCalculableError
 from apps.payroll.services.validation import validate_run_calculable
+from apps.payroll.services.workflow import reopen_locked_run, transition_run
 
 
 def assert_run_mutable(run) -> None:
@@ -17,6 +19,27 @@ def assert_run_mutable(run) -> None:
     raise RunNotCalculableError(message)
 
 
-def lock_run(run, user=None):
-    """Approved → Locked; freeze results. Planned for Sprint 8.3."""
-    raise NotImplementedError('locking.lock_run is planned for Sprint 8.3')
+def assert_run_unlocked_for_mutation(run) -> None:
+    """Raise if results / components / run data must not be edited or deleted."""
+    if run is None:
+        return
+    status = getattr(run, 'status', None)
+    if status == PayrollRunStatus.LOCKED or getattr(run, 'is_locked', False):
+        raise LockedRunMutationError(
+            'Cannot modify or delete payroll data after the run is locked.'
+        )
+
+
+def lock_run(run, user=None, remarks: str = ''):
+    """Approved → Locked; freeze results."""
+    return transition_run(
+        run,
+        PayrollRunStatus.LOCKED,
+        user=user,
+        remarks=remarks,
+    )
+
+
+def reopen_run(run, user=None, remarks: str = ''):
+    """Superuser-only reopen (Locked → Approved) with mandatory reason."""
+    return reopen_locked_run(run, user=user, remarks=remarks)
