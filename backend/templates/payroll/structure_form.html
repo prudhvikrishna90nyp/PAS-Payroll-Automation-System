@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit Structure{% else %}Add Structure{% endif %}{% endblock %}
+{% block page_heading %}{% if object %}Edit Structure{% else %}Add Structure{% endif %}{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">Structure</div>
+        <div class="card-body row g-3">
+            <div class="col-md-4"><label class="form-label">Company</label>{{ form.company }}{% for e in form.company.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+            <div class="col-md-4"><label class="form-label">Code</label>{{ form.code }}{% for e in form.code.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+            <div class="col-md-4"><label class="form-label">Name</label>{{ form.name }}{% for e in form.name.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+            <div class="col-md-10"><label class="form-label">Description</label>{{ form.description }}</div>
+            <div class="col-md-2 form-check mt-4">{{ form.is_active }} <label class="form-check-label">Active</label></div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">Component lines</div>
+        <div class="card-body table-responsive">
+            {{ line_formset.management_form }}
+            <table class="table align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Component</th>
+                        <th>Calc override</th>
+                        <th>Value</th>
+                        <th>Percent</th>
+                        <th>Formula override</th>
+                        <th>Order</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in line_formset %}
+                    <tr>
+                        <td>{{ f.id }}{{ f.component }}{% for e in f.component.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+                        <td>{{ f.calculation_type }}</td>
+                        <td>{{ f.value }}</td>
+                        <td>{{ f.percent }}</td>
+                        <td>{{ f.formula_override }}</td>
+                        <td>{{ f.display_order }}</td>
+                        <td>{% if f.DELETE %}{{ f.DELETE }}{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if line_formset.non_form_errors %}<div class="alert alert-danger">{{ line_formset.non_form_errors }}</div>{% endif %}
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% url 'payroll:structure_list' %}" class="btn btn-outline-secondary">Cancel</a>
+</form>
+{% endblock %}

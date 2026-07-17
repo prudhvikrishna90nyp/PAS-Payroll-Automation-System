@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Seed Standard Components{% endblock %}
+{% block page_heading %}Seed Standard Components{% endblock %}
+{% block page_subtitle %}Create the standard Indian payroll component set for a company{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+<form method="post" class="card shadow-sm">
+    {% csrf_token %}
+    <div class="card-body">
+        <label class="form-label">Company</label>
+        {{ form.company }}
+        <p class="text-muted small mt-3 mb-0">Idempotent — existing codes are left unchanged.</p>
+    </div>
+    <div class="card-footer bg-white">
+        <button type="submit" class="btn btn-primary">Seed Components</button>
+        <a href="{% url 'payroll:component_list' %}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

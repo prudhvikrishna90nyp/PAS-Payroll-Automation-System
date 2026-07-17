@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}{{ component.component_code }}{% endblock %}
+{% block page_heading %}{{ component.component_name }}{% endblock %}
+{% block page_subtitle %}{{ component.company.company_name }} · {{ component.component_code }}{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+<div class="d-flex gap-2 mb-4">
+    <a href="{% url 'payroll:component_edit' component.pk %}" class="btn btn-primary btn-sm">Edit</a>
+    <form method="post" action="{% url 'payroll:component_archive' component.pk %}">{% csrf_token %}<button class="btn btn-outline-danger btn-sm" type="submit">Archive</button></form>
+    <a href="{% url 'payroll:component_list' %}" class="btn btn-outline-secondary btn-sm">Back</a>
+</div>
+<div class="card shadow-sm">
+    <div class="card-body row g-3">
+        <div class="col-md-3"><div class="text-muted small">Type</div><div>{{ component.get_component_type_display }}</div></div>
+        <div class="col-md-3"><div class="text-muted small">Calculation</div><div>{{ component.get_calculation_type_display }}</div></div>
+        <div class="col-md-6"><div class="text-muted small">Formula</div><div><code>{{ component.formula|default:"—" }}</code></div></div>
+        <div class="col-md-2"><div class="text-muted small">Taxable</div><div>{{ component.taxable|yesno:"Yes,No" }}</div></div>
+        <div class="col-md-2"><div class="text-muted small">PF</div><div>{{ component.pf_applicable|yesno:"Yes,No" }}</div></div>
+        <div class="col-md-2"><div class="text-muted small">ESI</div><div>{{ component.esi_applicable|yesno:"Yes,No" }}</div></div>
+        <div class="col-md-2"><div class="text-muted small">In CTC</div><div>{{ component.include_in_ctc|yesno:"Yes,No" }}</div></div>
+        <div class="col-md-2"><div class="text-muted small">In Gross</div><div>{{ component.include_in_gross|yesno:"Yes,No" }}</div></div>
+        <div class="col-md-2"><div class="text-muted small">Order</div><div>{{ component.display_order }}</div></div>
+    </div>
+</div>
+{% endblock %}

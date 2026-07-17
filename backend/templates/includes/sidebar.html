@@ -52,7 +52,7 @@
         <a href="{% url 'attendance:attendance_list' %}" class="list-group-item list-group-item-action {% if request.resolver_match.namespace == 'attendance' %}active{% endif %}">
             <i class="bi bi-calendar-check me-2"></i> Attendance
         </a>
-        <a href="{% url 'payslip_list' %}" class="list-group-item list-group-item-action {% if 'payslip' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'payroll:structure_list' %}" class="list-group-item list-group-item-action {% if request.resolver_match.namespace == 'payroll' %}active{% endif %}">
             <i class="bi bi-cash-stack me-2"></i> Payroll
         </a>
         <a href="{% url 'reports_index' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'reports_index' %}active{% endif %}">

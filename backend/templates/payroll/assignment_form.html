@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit Assignment{% else %}Add Assignment{% endif %}{% endblock %}
+{% block page_heading %}{% if object %}Edit Assignment{% else %}Add Assignment{% endif %}{% endblock %}
+
+{% block content %}
+{% include "payroll/_nav.html" %}
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">Assignment</div>
+        <div class="card-body row g-3">
+            <div class="col-md-6"><label class="form-label">Employee</label>{{ form.employee }}{% for e in form.employee.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+            <div class="col-md-6"><label class="form-label">Salary structure</label>{{ form.salary_structure }}{% for e in form.salary_structure.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+            <div class="col-md-3"><label class="form-label">Effective from</label>{{ form.effective_from }}{% for e in form.effective_from.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+            <div class="col-md-3"><label class="form-label">Effective to</label>{{ form.effective_to }}<div class="form-text">Leave blank for current</div></div>
+            <div class="col-md-3"><label class="form-label">Gross salary</label>{{ form.gross_salary }}{% for e in form.gross_salary.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+            <div class="col-md-3"><label class="form-label">CTC (annual)</label>{{ form.ctc }}<div class="form-text">0 = auto on create</div></div>
+            <div class="col-md-8"><label class="form-label">Remarks</label>{{ form.remarks }}</div>
+            <div class="col-md-4 form-check mt-4">{{ form.is_active }} <label class="form-check-label">Active</label></div>
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% url 'payroll:assignment_list' %}" class="btn btn-outline-secondary">Cancel</a>
+</form>
+{% endblock %}

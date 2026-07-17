@@ -12,7 +12,10 @@ class EmployeeDocumentInline(admin.TabularInline):
 
 @admin.register(SalaryStructure)
 class SalaryStructureAdmin(admin.ModelAdmin):
+    """Legacy simple structure (basic/HRA/transport). Prefer payroll.SalaryStructure."""
+
     list_display = ('code', 'name', 'company', 'basic_salary', 'is_active', 'is_deleted')
+
     list_filter = ('is_active', 'is_deleted', 'company')
     search_fields = ('name', 'code', 'company__company_name')
     readonly_fields = ('created_by', 'updated_by')
