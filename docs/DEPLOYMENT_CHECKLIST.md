@@ -2,6 +2,8 @@
 
 Use with `backend/docs/05_DEPLOYMENT.md`. Complete every item before exposing PAS to production payroll data.
 
+**Controlled first live month:** follow [PRODUCTION_GO_LIVE.md](PRODUCTION_GO_LIVE.md) and reconcile with Excel using [PARALLEL_RUN_CHECKLIST.md](PARALLEL_RUN_CHECKLIST.md). Do **not** Approve/Lock until totals match.
+
 ---
 
 ## 1. Pre-install
@@ -29,6 +31,8 @@ export DJANGO_SETTINGS_MODULE=config.settings.production
 python manage.py migrate                 # apply schema + seed role groups (post_migrate)
 python manage.py collectstatic --noinput
 python manage.py createsuperuser
+# Or non-interactive when DJANGO_SUPERUSER_* are set in .env:
+# python manage.py ensure_admin
 python manage.py check
 python manage.py makemigrations --check  # expect: No changes detected
 ```
@@ -43,6 +47,7 @@ cp .env.example .env
 docker compose up --build -d
 docker compose exec web python manage.py migrate
 docker compose exec web python manage.py createsuperuser
+# Or: docker compose exec web python manage.py ensure_admin
 ```
 
 ---
@@ -88,14 +93,19 @@ python manage.py test
 ## 5. Backup before go-live
 
 - [ ] Configure scheduled DB backups per [BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md)
+- [ ] Run `backend/scripts/backup_db.ps1` (Windows) or `backend/scripts/backup_db.sh` (Linux/macOS)
 - [ ] Take a verified restore dry-run on a staging host
 - [ ] Document restore RTO/RPO for the ops team
 
 ---
 
-## 6. Cutover
+## 6. Cutover (controlled parallel run)
 
-- [ ] Freeze parallel spreadsheet payroll (if any) for the go-live month
-- [ ] Import/verify employee masters and bank details
-- [ ] Run parallel calc for one period and reconcile nets
-- [ ] Lock first production run only after reconciliation sign-off
+Full runbook: [PRODUCTION_GO_LIVE.md](PRODUCTION_GO_LIVE.md). Worksheet: [PARALLEL_RUN_CHECKLIST.md](PARALLEL_RUN_CHECKLIST.md).
+
+- [ ] Start with **one company** and **one payroll month** only
+- [ ] Freeze parallel spreadsheet payroll for that month (Excel remains source of truth until match)
+- [ ] Import/verify employee masters and bank details (no fictional live data)
+- [ ] Draft calculate → reconcile Gross / EPF / ESI / PT / TDS / loans / net / employer contrib
+- [ ] Lock first production run **only** after [PARALLEL_RUN_CHECKLIST.md](PARALLEL_RUN_CHECKLIST.md) sign-off
+- [ ] Backup immediately after lock

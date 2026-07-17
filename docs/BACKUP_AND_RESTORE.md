@@ -15,6 +15,25 @@ PAS stores authoritative payroll data in the configured Django database (Postgre
 
 ---
 
+## Helper scripts
+
+From the repo (reads `backend/.env` for `DB_*` when present):
+
+```powershell
+# Windows PowerShell
+.\backend\scripts\backup_db.ps1
+.\backend\scripts\backup_db.ps1 -OutputDir "D:\pas-backups"
+```
+
+```bash
+# Linux / macOS
+chmod +x backend/scripts/backup_db.sh
+./backend/scripts/backup_db.sh
+OUTPUT_DIR=/var/backups/pas ./backend/scripts/backup_db.sh
+```
+
+If `DB_NAME` is unset, the scripts copy `backend/db.sqlite3` (development only).
+
 ## PostgreSQL backup
 
 ```bash
@@ -73,9 +92,13 @@ Do not use SQLite for production payroll.
 
 - [ ] Backup job succeeded and file size &gt; 0
 - [ ] Staging restore completed within target RTO
+- [ ] After restore: `python manage.py migrate` (no-op) and `python manage.py check`
 - [ ] Superuser can log in; latest locked payroll run visible
 - [ ] Sample payslip / compliance export matches pre-backup snapshot
 - [ ] Media logos and proof files load
+- [ ] Parallel-run or post-lock backup stored off-host with period label
+
+Controlled go-live: take a backup **before** the first parallel month and **again after** Approve/Lock — see [PRODUCTION_GO_LIVE.md](PRODUCTION_GO_LIVE.md).
 
 ---
 

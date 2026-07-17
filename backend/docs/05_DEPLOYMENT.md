@@ -57,6 +57,12 @@ When a release is ready, merge `develop` → `main`.
 | `DB_PORT` | No | `5432` | Database port |
 | `CSRF_TRUSTED_ORIGINS` | Prod | — | HTTPS origins |
 | `SECURE_SSL_REDIRECT` | Prod | `False` | Force HTTPS |
+| `DJANGO_SUPERUSER_*` | Optional | — | For `ensure_admin` (USERNAME, EMAIL, PASSWORD) |
+| `EMAIL_*` | Optional | — | SMTP stubs — see `.env.example` |
+
+PAS uses `DB_*` (not `DATABASE_URL`). Map URL parts to `DB_NAME` / `DB_USER` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT`. Never commit real `.env` secrets.
+
+Controlled go-live: [docs/PRODUCTION_GO_LIVE.md](../../docs/PRODUCTION_GO_LIVE.md).
 
 ---
 
@@ -78,6 +84,7 @@ Run migrations inside the container:
 ```bash
 docker compose exec web python manage.py migrate
 docker compose exec web python manage.py createsuperuser
+# Or non-interactive: docker compose exec web python manage.py ensure_admin
 ```
 
 ---
@@ -105,10 +112,11 @@ gunicorn config.wsgi:application --bind 0.0.0.0:8000
 - [ ] Enable HTTPS (`SECURE_SSL_REDIRECT=True`)
 - [ ] Run `collectstatic` (WhiteNoise serves static files)
 - [ ] Configure media storage (S3 or nginx for `/media/`)
-- [ ] Set up database backups — see `docs/BACKUP_AND_RESTORE.md`
-- [ ] Create admin superuser
+- [ ] Set up database backups — see `docs/BACKUP_AND_RESTORE.md` and `scripts/backup_db.*`
+- [ ] Create admin superuser (`createsuperuser` or `ensure_admin`)
 - [ ] Assign users to role groups (Admin / HR / Payroll / Viewer)
-- [ ] Follow `docs/DEPLOYMENT_CHECKLIST.md` for RC/production cutover
+- [ ] Follow `docs/DEPLOYMENT_CHECKLIST.md` and `docs/PRODUCTION_GO_LIVE.md` for cutover
+- [ ] Parallel-run one company/month via `docs/PARALLEL_RUN_CHECKLIST.md` before Lock
 
 ---
 
