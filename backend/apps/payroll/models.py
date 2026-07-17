@@ -596,6 +596,17 @@ class PayrollRun(models.Model):
             '(e.g. company AP seed). Per-employee jurisdiction is on PayrollPTResult.'
         ),
     )
+    tds_rule_set = models.ForeignKey(
+        'compliance.FinancialYearTaxRule',
+        on_delete=models.PROTECT,
+        related_name='payroll_runs',
+        null=True,
+        blank=True,
+        help_text=(
+            'Optional primary TDS / income-tax rule snapshotted at calculation time '
+            '(typically NEW-regime seed for the FY). Per-employee regime is on PayrollTDSResult.'
+        ),
+    )
     calculation_errors = models.JSONField(
         default=list,
         blank=True,

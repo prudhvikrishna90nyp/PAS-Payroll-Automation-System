@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Tax Declarations{% endblock %}
+{% block page_heading %}Tax Declarations{% endblock %}
+{% block page_subtitle %}Investment / deduction declarations by financial year{% endblock %}
+
+{% block content %}
+<div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'compliance:hub' %}">← Compliance Hub</a>
+    <a class="btn btn-sm btn-outline-secondary" href="/admin/compliance/taxdeclaration/">Admin</a>
+    <form method="get" class="d-flex gap-2">
+        <input class="form-control form-control-sm" name="fy" value="{{ fy }}" placeholder="FY e.g. 2025-26">
+        <button class="btn btn-sm btn-primary" type="submit">Filter</button>
+    </form>
+</div>
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>FY</th>
+                    <th>Regime</th>
+                    <th>Status</th>
+                    <th>80C</th>
+                    <th>Housing Loan</th>
+                    <th>HRA</th>
+                    <th>Other</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in declarations %}
+                <tr>
+                    <td>{{ d.employee.employee_code }}</td>
+                    <td>{{ d.financial_year }}</td>
+                    <td>{{ d.get_regime_display }}</td>
+                    <td>{{ d.get_status_display }}</td>
+                    <td>{{ d.section_80c }}</td>
+                    <td>{{ d.housing_loan }}</td>
+                    <td>{{ d.hra }}</td>
+                    <td>{{ d.other_deductions }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="text-muted">No declarations found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

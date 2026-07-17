@@ -1,4 +1,4 @@
-"""Persist payroll result snapshots (Sprint 8.2 / 9.1–9.3)."""
+"""Persist payroll result snapshots (Sprint 8.2 / 9.1–9.4)."""
 
 from __future__ import annotations
 
@@ -9,11 +9,16 @@ from django.db import transaction
 
 @transaction.atomic
 def snapshot_employee_result(run, calc_result):
-    """Persist ``PayrollResult`` + components + PF/ESI/PT results for one employee.
+    """Persist ``PayrollResult`` + components + PF/ESI/PT/TDS results for one employee.
 
     Replaces any existing result row for the same run/employee.
     """
-    from apps.compliance.models import PayrollESIResult, PayrollPFResult, PayrollPTResult
+    from apps.compliance.models import (
+        PayrollESIResult,
+        PayrollPFResult,
+        PayrollPTResult,
+        PayrollTDSResult,
+    )
     from apps.payroll.models import PayrollResult, PayrollResultComponent
     from apps.payroll.services.locking import assert_run_unlocked_for_mutation
 
@@ -102,11 +107,30 @@ def snapshot_employee_result(run, calc_result):
             exemption_reason=pt_calc.exemption_reason or '',
             calculation_snapshot=pt_calc.to_snapshot_dict(),
         )
+
+    tds_calc = getattr(calc_result, 'tds_calculation', None)
+    if tds_calc is not None:
+        PayrollTDSResult.objects.create(
+            payroll_result=result,
+            rule_set=tds_calc.rule_set,
+            financial_year=tds_calc.financial_year or '',
+            tax_regime=tds_calc.tax_regime or '',
+            taxable_salary=tds_calc.taxable_salary,
+            annual_tax=tds_calc.annual_tax,
+            monthly_tds=tds_calc.monthly_tds,
+            tax_before_cess=tds_calc.tax_after_rebate + tds_calc.surcharge,
+            surcharge=tds_calc.surcharge,
+            cess=tds_calc.cess,
+            rebate=tds_calc.rebate,
+            relief=tds_calc.relief,
+            previous_tds=tds_calc.previous_tds,
+            calculation_snapshot=tds_calc.to_snapshot_dict(),
+        )
     return result
 
 
 def clear_run_results(run) -> int:
-    """Delete all results (and cascaded components / PF / ESI / PT results) for a run. Returns count."""
+    """Delete all results (and cascaded components / PF / ESI / PT / TDS) for a run."""
     from apps.payroll.models import PayrollResult
     from apps.payroll.services.locking import assert_run_unlocked_for_mutation
 

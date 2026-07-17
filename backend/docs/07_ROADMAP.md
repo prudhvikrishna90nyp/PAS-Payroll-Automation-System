@@ -28,11 +28,17 @@
 
 ## Phase 3 — Statutory Compliance
 
-- [ ] EPF / ESI calculation rules engine
-- [ ] Professional tax by state
-- [ ] TDS computation and Form 16
-- [ ] ECR and ESI return file generation
-- [ ] PF challan and remittance reports
+- [x] EPF / ESI calculation rules engine (Sprint 9.1 / 9.2)
+- [x] Professional tax by state (Sprint 9.3)
+- [x] TDS computation and Form 16 prep (Sprint 9.4)
+- [x] ECR and ESI return file generation
+- [ ] PF challan and remittance reports (enhance)
+
+## Phase 3b — v1.0 RC Stabilization (next)
+
+- [ ] Bank advice / NEFT export
+- [ ] PDF payslips
+- [ ] Production hardening and regression suite
 
 ## Phase 4 — Advanced Features
 

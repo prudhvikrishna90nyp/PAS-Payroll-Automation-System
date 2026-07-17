@@ -69,6 +69,7 @@ def _line_specs(structure: SalaryStructure) -> list[dict]:
             'include_in_ctc': component.include_in_ctc,
             'pf_applicable': component.pf_applicable,
             'esi_applicable': component.esi_applicable,
+            'taxable': component.taxable,
             'rounding_rule': component.rounding_rule,
             'display_order': line.display_order or component.display_order,
             'is_formula': calc == CalculationType.FORMULA,
@@ -167,6 +168,7 @@ def calculate_structure_components(
             'include_in_ctc': spec['include_in_ctc'],
             'pf_applicable': spec.get('pf_applicable', False),
             'esi_applicable': spec.get('esi_applicable', False),
+            'taxable': spec.get('taxable', True),
         }
         result.lines.append(line_row)
 

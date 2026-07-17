@@ -1,4 +1,4 @@
-"""EPF / ESI / Professional Tax statutory compliance models (Sprint 9.1–9.3)."""
+"""EPF / ESI / Professional Tax / TDS statutory compliance models (Sprint 9.1–9.4)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
 
-from apps.common.validators import validate_esi_ip, validate_uan
+from apps.common.validators import validate_esi_ip, validate_pan, validate_uan
 from apps.employee.models import Employee
 
 
@@ -836,3 +836,548 @@ class PayrollPTResult(models.Model):
 
     def __str__(self):
         return f'PT result for payroll result #{self.payroll_result_id}'
+
+
+# ---------------------------------------------------------------------------
+# Income Tax / TDS (salaried) — documented seed rates (Sprint 9.4)
+# ---------------------------------------------------------------------------
+# Sources (approximate official structure for PAS seed data; always load from DB):
+#   - Income-tax Act / Finance Acts — slab rates for OLD vs NEW regimes
+#   - Budget 2024 (FY 2024-25) revised NEW regime slabs + std deduction ₹75,000;
+#     rebate u/s 87A so that tax is nil up to taxable income ₹7,00,000 (NEW)
+#   - Budget 2025 (FY 2025-26) further revised NEW regime slabs + rebate to
+#     ₹12,00,000 taxable income (NEW); OLD regime slabs unchanged in seed
+#   - Health & Education Cess: 4% on (tax + surcharge)
+#   - Surcharge bands stored in ``surcharge_rules`` JSON (engine never hardcodes)
+#
+# OLD regime slabs (seed): 0–2.5L nil; 2.5–5L 5%; 5–10L 20%; above 10L 30%.
+# Std deduction OLD: ₹50,000. Rebate 87A OLD: income ≤ ₹5,00,000.
+#
+# CRITICAL: Slabs / rates are NEVER hardcoded in the calculation engine —
+# always load FinancialYearTaxRule + TaxSlab rows from the DB.
+#
+# Regime-change rule (payroll): employees may change tax regime for a FY until
+# 31 July of that FY (e.g. FY 2024-25 → deadline 2024-07-31). After the
+# deadline, the regime on the approved TaxDeclaration (else profile default
+# effective at deadline) is locked for remaining payroll months of the FY.
+# ---------------------------------------------------------------------------
+
+
+class TaxRegime(models.TextChoices):
+    OLD = 'OLD', 'Old regime'
+    NEW = 'NEW', 'New regime'
+
+
+class TaxResidency(models.TextChoices):
+    RESIDENT = 'RESIDENT', 'Resident'
+    NRI = 'NRI', 'Non-resident'
+    RNOR = 'RNOR', 'Resident but not ordinarily resident'
+
+
+class TaxDeclarationStatus(models.TextChoices):
+    DRAFT = 'DRAFT', 'Draft'
+    SUBMITTED = 'SUBMITTED', 'Submitted'
+    APPROVED = 'APPROVED', 'Approved'
+
+
+class InvestmentProofCategory(models.TextChoices):
+    SECTION_80C = '80C', 'Section 80C'
+    SECTION_80D = '80D', 'Section 80D'
+    SECTION_80CCD = '80CCD', 'Section 80CCD'
+    HRA = 'HRA', 'HRA exemption'
+    HOUSING_LOAN = 'HOUSING_LOAN', 'Housing loan interest'
+    OTHER = 'OTHER', 'Other deduction'
+
+
+class FinancialYearTaxRule(models.Model):
+    """Versioned income-tax rule set for one FY + regime. No overlapping dates."""
+
+    financial_year = models.CharField(
+        max_length=9,
+        help_text='Indian FY label, e.g. 2024-25.',
+        db_index=True,
+    )
+    tax_regime = models.CharField(max_length=10, choices=TaxRegime.choices)
+    code = models.CharField(
+        max_length=40,
+        unique=True,
+        help_text='Stable identifier snapshotted on payroll TDS results.',
+    )
+    name = models.CharField(max_length=120, blank=True)
+    effective_from = models.DateField()
+    effective_to = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Inclusive end date. Null means open-ended.',
+    )
+    standard_deduction = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    rebate_limit = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text='Section 87A: taxable income at/below this → full rebate of tax (before cess).',
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    cess_rate = models.DecimalField(
+        max_digits=7,
+        decimal_places=4,
+        default=Decimal('0.0400'),
+        help_text='Health & Education Cess as a fraction (0.04 = 4%).',
+        validators=[MinValueValidator(Decimal('0')), MaxValueValidator(Decimal('1'))],
+    )
+    surcharge_rules = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            'Ordered list of {"income_from","income_to"|null,"rate"} bands. '
+            'Rates are fractions (0.10 = 10%). Engine loads from DB only.'
+        ),
+    )
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-financial_year', 'tax_regime', '-effective_from']
+        verbose_name = 'Financial Year Tax Rule'
+        verbose_name_plural = 'Financial Year Tax Rules'
+        permissions = [
+            ('export_tdsregister', 'Can export TDS registers'),
+            ('export_form16', 'Can export Form 16 preparation data'),
+        ]
+
+    def __str__(self):
+        end = self.effective_to or 'open'
+        return f'{self.code} ({self.effective_from} – {end})'
+
+    def clean(self):
+        errors = {}
+        if self.financial_year:
+            self.financial_year = self.financial_year.strip()
+        if self.effective_to and self.effective_from and self.effective_to < self.effective_from:
+            errors['effective_to'] = 'effective_to must be on or after effective_from.'
+        if self.effective_from and self.is_active and self.financial_year and self.tax_regime:
+            overlap = self._overlapping_active_queryset()
+            if overlap.exists():
+                other = overlap.first()
+                errors['__all__'] = (
+                    f'Active date range overlaps {other.code} for '
+                    f'{other.financial_year}/{other.tax_regime} '
+                    f'({other.effective_from} – {other.effective_to or "open"}).'
+                )
+        if errors:
+            raise ValidationError(errors)
+
+    def _overlapping_active_queryset(self):
+        start = self.effective_from
+        end = self.effective_to
+        qs = FinancialYearTaxRule.objects.filter(
+            is_active=True,
+            financial_year=self.financial_year,
+            tax_regime=self.tax_regime,
+        ).exclude(pk=self.pk)
+        if end is None:
+            qs = qs.filter(Q(effective_to__isnull=True) | Q(effective_to__gte=start))
+        else:
+            qs = qs.filter(effective_from__lte=end).filter(
+                Q(effective_to__isnull=True) | Q(effective_to__gte=start)
+            )
+        return qs
+
+    def save(self, *args, **kwargs):
+        if kwargs.get('update_fields') is None:
+            self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class TaxSlab(models.Model):
+    """One taxable-income band within a FY tax rule. Rates come from DB only."""
+
+    rule = models.ForeignKey(
+        FinancialYearTaxRule,
+        on_delete=models.CASCADE,
+        related_name='slabs',
+    )
+    income_from = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text='Inclusive lower bound of annual taxable income.',
+    )
+    income_to = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Inclusive upper bound. Null = no upper limit.',
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    rate = models.DecimalField(
+        max_digits=7,
+        decimal_places=4,
+        default=Decimal('0.0000'),
+        help_text='Tax rate as a fraction (0.05 = 5%).',
+        validators=[MinValueValidator(Decimal('0')), MaxValueValidator(Decimal('1'))],
+    )
+    sequence = models.PositiveSmallIntegerField(default=10)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['rule_id', 'sequence', 'income_from']
+        verbose_name = 'Tax Slab'
+        verbose_name_plural = 'Tax Slabs'
+
+    def __str__(self):
+        upper = self.income_to if self.income_to is not None else '∞'
+        return f'{self.rule.code} {self.income_from}–{upper}: {self.rate}'
+
+    def clean(self):
+        errors = {}
+        if self.income_to is not None and self.income_from is not None:
+            if self.income_to < self.income_from:
+                errors['income_to'] = 'income_to must be on or after income_from.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if kwargs.get('update_fields') is None:
+            self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class EmployeeTaxProfile(models.Model):
+    """Per-employee default tax regime, PAN, and residency."""
+
+    employee = models.OneToOneField(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name='tax_profile',
+    )
+    default_tax_regime = models.CharField(
+        max_length=10,
+        choices=TaxRegime.choices,
+        default=TaxRegime.NEW,
+    )
+    pan_number = models.CharField(
+        max_length=10,
+        blank=True,
+        validators=[validate_pan],
+    )
+    tax_residency = models.CharField(
+        max_length=20,
+        choices=TaxResidency.choices,
+        default=TaxResidency.RESIDENT,
+    )
+    effective_from = models.DateField(null=True, blank=True)
+    is_tds_applicable = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['employee__employee_code']
+        verbose_name = 'Employee Tax Profile'
+        verbose_name_plural = 'Employee Tax Profiles'
+
+    def __str__(self):
+        return f'Tax profile — {self.employee.employee_code} ({self.default_tax_regime})'
+
+    def clean(self):
+        errors = {}
+        if self.pan_number:
+            try:
+                validate_pan(self.pan_number)
+            except ValidationError as exc:
+                errors['pan_number'] = exc.messages
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if self.pan_number:
+            self.pan_number = self.pan_number.strip().upper()
+        if kwargs.get('update_fields') is None:
+            self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class TaxDeclaration(models.Model):
+    """Employee investment / deduction declaration for one financial year."""
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name='tax_declarations',
+    )
+    financial_year = models.CharField(max_length=9, db_index=True)
+    regime = models.CharField(max_length=10, choices=TaxRegime.choices)
+    declared_amounts = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Flexible map of deduction codes → amounts (e.g. {"80C": "150000"}).',
+    )
+    section_80c = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    section_80d = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    housing_loan = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text='Interest on housing loan (e.g. u/s 24).',
+    )
+    hra = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text='Claimed HRA exemption amount.',
+    )
+    other_deductions = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=TaxDeclarationStatus.choices,
+        default=TaxDeclarationStatus.DRAFT,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-financial_year', 'employee__employee_code']
+        verbose_name = 'Tax Declaration'
+        verbose_name_plural = 'Tax Declarations'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['employee', 'financial_year'],
+                name='uniq_tax_declaration_employee_fy',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.employee.employee_code} {self.financial_year} ({self.regime}/{self.status})'
+
+    def total_old_regime_deductions(self) -> Decimal:
+        """Sum structured + JSON declared amounts (for OLD regime projection)."""
+        total = (
+            Decimal(self.section_80c or 0)
+            + Decimal(self.section_80d or 0)
+            + Decimal(self.housing_loan or 0)
+            + Decimal(self.hra or 0)
+            + Decimal(self.other_deductions or 0)
+        )
+        extras = self.declared_amounts or {}
+        for key, value in extras.items():
+            if key in {'80C', '80D', 'HOUSING_LOAN', 'HRA', 'OTHER'}:
+                continue  # already in structured fields when mirrored
+            try:
+                total += Decimal(str(value))
+            except Exception:  # noqa: BLE001
+                continue
+        return total
+
+
+class InvestmentProof(models.Model):
+    """Supporting proof for a tax declaration (or employee+FY)."""
+
+    declaration = models.ForeignKey(
+        TaxDeclaration,
+        on_delete=models.CASCADE,
+        related_name='proofs',
+        null=True,
+        blank=True,
+    )
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name='investment_proofs',
+        null=True,
+        blank=True,
+    )
+    financial_year = models.CharField(max_length=9, blank=True)
+    category = models.CharField(
+        max_length=20,
+        choices=InvestmentProofCategory.choices,
+        default=InvestmentProofCategory.OTHER,
+    )
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    proof_file = models.FileField(
+        upload_to='compliance/investment_proofs/',
+        blank=True,
+        null=True,
+    )
+    verified = models.BooleanField(default=False)
+    notes = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Investment Proof'
+        verbose_name_plural = 'Investment Proofs'
+
+    def __str__(self):
+        return f'{self.category} {self.amount} ({self.financial_year or "—"})'
+
+    def clean(self):
+        errors = {}
+        if self.declaration_id is None and self.employee_id is None:
+            errors['__all__'] = 'Either declaration or employee must be set.'
+        if self.declaration_id and not self.financial_year:
+            self.financial_year = self.declaration.financial_year
+        if self.declaration_id and self.employee_id is None:
+            self.employee = self.declaration.employee
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if self.declaration_id:
+            if not self.financial_year:
+                self.financial_year = self.declaration.financial_year
+            if self.employee_id is None:
+                self.employee = self.declaration.employee
+        if kwargs.get('update_fields') is None:
+            self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class PreviousEmployerIncome(models.Model):
+    """Income / TDS from previous employer(s) for mid-year joins."""
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name='previous_employer_incomes',
+    )
+    financial_year = models.CharField(max_length=9, db_index=True)
+    employer_name = models.CharField(max_length=200, blank=True)
+    taxable_income = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    tds_deducted = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    pf_deducted = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    professional_tax = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-financial_year', 'employee__employee_code']
+        verbose_name = 'Previous Employer Income'
+        verbose_name_plural = 'Previous Employer Incomes'
+
+    def __str__(self):
+        return (
+            f'{self.employee.employee_code} {self.financial_year} '
+            f'income={self.taxable_income} tds={self.tds_deducted}'
+        )
+
+
+class PayrollTDSResult(models.Model):
+    """Immutable TDS calculation snapshot linked to a payroll result."""
+
+    payroll_result = models.OneToOneField(
+        'payroll.PayrollResult',
+        on_delete=models.CASCADE,
+        related_name='tds_result',
+    )
+    rule_set = models.ForeignKey(
+        FinancialYearTaxRule,
+        on_delete=models.PROTECT,
+        related_name='payroll_tds_results',
+        null=True,
+        blank=True,
+    )
+    financial_year = models.CharField(max_length=9, blank=True)
+    tax_regime = models.CharField(max_length=10, blank=True)
+    taxable_salary = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text='Projected annual taxable income used for slab calculation.',
+    )
+    annual_tax = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text='Total annual tax liability including surcharge and cess.',
+    )
+    monthly_tds = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+    )
+    tax_before_cess = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+    )
+    surcharge = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+    )
+    cess = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+    )
+    rebate = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+    )
+    relief = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text='Reserved for u/s 89 relief; default zero.',
+    )
+    previous_tds = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text='YTD payroll TDS + previous employer TDS already recovered.',
+    )
+    calculation_snapshot = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['payroll_result_id']
+        verbose_name = 'Payroll TDS Result'
+        verbose_name_plural = 'Payroll TDS Results'
+
+    def __str__(self):
+        return f'TDS result for payroll result #{self.payroll_result_id}'

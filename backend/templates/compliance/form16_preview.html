@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Form 16 Preview{% endblock %}
+{% block page_heading %}Form 16 Preparation Data{% endblock %}
+{% block page_subtitle %}Assembled from TDS snapshots — not recalculated{% endblock %}
+
+{% block content %}
+<div class="mb-3 d-flex flex-wrap gap-2">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'compliance:hub' %}">← Compliance Hub</a>
+    <a class="btn btn-sm btn-primary" href="{% url 'compliance:form16_export' run.pk %}">Export Excel</a>
+    {% if employee %}
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'compliance:form16_export' run.pk %}?employee={{ employee.pk }}">Export this employee</a>
+    {% endif %}
+</div>
+
+<div class="alert alert-info small">
+    Run #{{ run.run_number }} — {{ run.company.company_name }} —
+    {{ run.period.month|stringformat:"02d" }}/{{ run.period.year }}
+</div>
+
+{% if payload %}
+<div class="card shadow-sm mb-3">
+    <div class="card-header"><strong>{{ payload.employee_code }} — {{ payload.employee_name }}</strong></div>
+    <div class="card-body">
+        <dl class="row mb-0 small">
+            <dt class="col-sm-3">PAN</dt><dd class="col-sm-9">{{ payload.pan|default:"—" }}</dd>
+            <dt class="col-sm-3">FY / Regime</dt><dd class="col-sm-9">{{ payload.financial_year }} / {{ payload.tax_regime }}</dd>
+            <dt class="col-sm-3">Rule</dt><dd class="col-sm-9">{{ payload.rule_code }}</dd>
+            <dt class="col-sm-3">Taxable salary</dt><dd class="col-sm-9">{{ payload.taxable_salary }}</dd>
+            <dt class="col-sm-3">Annual tax</dt><dd class="col-sm-9">{{ payload.annual_tax }}</dd>
+            <dt class="col-sm-3">Monthly TDS</dt><dd class="col-sm-9">{{ payload.monthly_tds_this_run }}</dd>
+            <dt class="col-sm-3">YTD TDS</dt><dd class="col-sm-9">{{ payload.ytd_tds_deducted }}</dd>
+            <dt class="col-sm-3">Prev employer</dt><dd class="col-sm-9">{{ payload.previous_employer_income }} (TDS {{ payload.previous_employer_tds }})</dd>
+        </dl>
+        <p class="text-muted small mb-0 mt-2">{{ payload.note }}</p>
+    </div>
+</div>
+{% elif payloads %}
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Emp</th>
+                    <th>PAN</th>
+                    <th>Regime</th>
+                    <th>Taxable</th>
+                    <th>Annual Tax</th>
+                    <th>Monthly TDS</th>
+                    <th>YTD TDS</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in payloads %}
+                <tr>
+                    <td>{{ p.employee_code }}</td>
+                    <td>{{ p.pan|default:"—" }}</td>
+                    <td>{{ p.tax_regime }}</td>
+                    <td>{{ p.taxable_salary }}</td>
+                    <td>{{ p.annual_tax }}</td>
+                    <td>{{ p.monthly_tds_this_run }}</td>
+                    <td>{{ p.ytd_tds_deducted }}</td>
+                    <td><a href="?employee={{ p.employee_id }}">detail</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-warning">No Form 16 data available for this run.</div>
+{% endif %}
+{% endblock %}

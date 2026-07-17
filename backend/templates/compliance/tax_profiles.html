@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Tax Profiles{% endblock %}
+{% block page_heading %}Employee Tax Profiles{% endblock %}
+{% block page_subtitle %}Default regime, PAN, and residency for TDS{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'compliance:hub' %}">← Compliance Hub</a>
+    <a class="btn btn-sm btn-outline-secondary" href="/admin/compliance/employeetaxprofile/">Admin</a>
+</div>
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Company</th>
+                    <th>Regime</th>
+                    <th>PAN</th>
+                    <th>Residency</th>
+                    <th>TDS Applicable</th>
+                    <th>Effective From</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in profiles %}
+                <tr>
+                    <td>{{ p.employee.employee_code }} — {{ p.employee }}</td>
+                    <td>{{ p.employee.company.company_name }}</td>
+                    <td>{{ p.get_default_tax_regime_display }}</td>
+                    <td>{{ p.pan_number|default:"—" }}</td>
+                    <td>{{ p.get_tax_residency_display }}</td>
+                    <td>{% if p.is_tds_applicable %}Yes{% else %}No{% endif %}</td>
+                    <td>{{ p.effective_from|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-muted">No tax profiles yet. Create via admin.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

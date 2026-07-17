@@ -31,12 +31,15 @@ def build_earning_rows(lines: list[dict], factor: Decimal) -> list[dict]:
             'include_in_gross': line.get('include_in_gross', True),
             'pf_applicable': line.get('pf_applicable', False),
             'esi_applicable': line.get('esi_applicable', False),
+            'pt_applicable': line.get('pt_applicable', line.get('taxable', True)),
+            'tds_applicable': line.get('tds_applicable', line.get('taxable', True)),
             'calculation_detail': {
                 'calculation_type': line.get('calculation_type'),
                 'full_month_amount': str(full_amount),
                 'proration_factor': str(factor),
                 'prorated': True,
                 'pf_applicable': bool(line.get('pf_applicable', False)),
+                'tds_applicable': bool(line.get('tds_applicable', line.get('taxable', True))),
             },
         })
     return rows
