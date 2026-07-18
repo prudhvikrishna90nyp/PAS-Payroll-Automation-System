@@ -63,7 +63,7 @@ python manage.py runserver 127.0.0.1:8000
 Then open:
 
 - App: http://127.0.0.1:8000/
-- Login: http://127.0.0.1:8000/accounts/login/ (or your accounts login URL)
+- Login: http://127.0.0.1:8000/admin/login/ (also redirects from `/accounts/login/` and `/login/`)
 - Django admin: http://127.0.0.1:8000/admin/
 
 Verify DB still Postgres:
