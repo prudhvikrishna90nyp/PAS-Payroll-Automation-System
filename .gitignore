@@ -14,6 +14,7 @@ venvvenv/
 
 # Django
 backend/db.sqlite3
+backend/backups/
 backend/media/company/logos/*
 backend/media/employee/photos/*
 backend/media/employee/documents/*
@@ -25,6 +26,9 @@ backend/staticfiles/
 .env
 .env.*
 !.env.example
+
+# Local Postgres data cluster (user-space / leftover; never commit)
+backend/.pgdata/
 
 # IDE
 .vscode/
